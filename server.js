@@ -276,15 +276,24 @@ function extractEpubText(buffer){
  if(!opf)throw new Error("EPUB package metadata missing");
  const base=opfPath.includes("/")?opfPath.slice(0,opfPath.lastIndexOf("/")+1):"";
  const manifest=new Map();
- for(const m of opf.matchAll(/<item\\b([^>]+)>/gi)){
-  const id=m[1].match(/id=["']([^"']+)["']/i)?.[1],href=m[1].match(/href=["']([^"']+)["']/i)?.[1],media=m[1].match(/media-type=["']([^"']+)["']/i)?.[1];
-  if(id&&href&&(/xhtml|html/i.test(media||"")))manifest.set(id,base+href.replace(/^\\.\\//,""));
+ for(const m of opf.matchAll(/<item\b([^>]+)>/gi)){
+  const id=m[1].match(/id=["']([^"']+)["']/i)?.[1];
+  const href=m[1].match(/href=["']([^"']+)["']/i)?.[1];
+  const media=m[1].match(/media-type=["']([^"']+)["']/i)?.[1];
+  if(id&&href&&(/xhtml|html/i.test(media||""))){
+   const cleanHref=href.startsWith("./")?href.slice(2):href;
+   manifest.set(id,base+cleanHref);
+  }
  }
- const spine=opf.match(/<spine\\b[^>]*>([\\s\\S]*?)<\\/spine>/i)?.[1]||"";
- const ids=[...spine.matchAll(/<itemref\\b[^>]*idref=["']([^"']+)["']/gi)].map(x=>x[1]);
+ const spineMatch=opf.match(/<spine\b[^>]*>([\s\S]*?)<\/spine>/i);
+ const spine=spineMatch?spineMatch[1]:"";
+ const ids=[...spine.matchAll(/<itemref\b[^>]*idref=["']([^"']+)["']/gi)].map(x=>x[1]);
  const parts=[];
- for(const id of ids){const file=files.get(manifest.get(id));if(file){const t=decodeBookHtml(file.toString("utf8"));if(t.length>100)parts.push(t);}}
- const text=parts.join("\\n\\n");
+ for(const id of ids){
+  const path=manifest.get(id);const file=path?files.get(path):null;
+  if(file){const t=decodeBookHtml(file.toString("utf8"));if(t.length>100)parts.push(t);}
+ }
+ const text=parts.join("\n\n");
  if(text.length<15000)throw new Error("EPUB text too short; not importing incomplete book");
  return text;
 }
