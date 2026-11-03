@@ -165,6 +165,34 @@ async function importCatalogMetadata() {
    }
   } catch(e) { console.error(`Catalog metadata import failed for ${target.code}:`,e.message); }
  }
+ // Fallback for English and Russian metadata. Open Library language query is
+ // language:eng / language:rus. Records remain unpublished pending rights review.
+ for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"}]) {
+  try {
+   const q=encodeURIComponent(`language:${target.ol}`);
+   const fields="key,title,author_name,first_publish_year,cover_i";
+   const url=`https://openlibrary.org/search.json?q=${q}&limit=100&fields=${fields}`;
+   const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (metadata discovery)"}});
+   if(!response.ok) throw new Error(`Open Library HTTP ${response.status}`);
+   const data=await response.json();
+   let n=0;
+   for(const b of (data.docs||[])) {
+    if(n>=50) break;
+    const title=String(b.title||"").trim();
+    const key=String(b.key||"").trim();
+    if(!title||!key||!key.startsWith("/works/")) continue;
+    const author=(b.author_name||[]).join(", ")||"Unknown";
+    const cover=b.cover_i?`https://covers.openlibrary.org/b/id/${b.cover_i}-L.jpg`:null;
+    const result=await pool.query(`INSERT INTO books
+     (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
+     VALUES($1,$2,$3,'Imported bibliographic metadata; text and distribution rights not verified','personal',$4,$5,0,FALSE,$6,NULL,'pending',FALSE,$7)
+     ON CONFLICT(id) DO NOTHING RETURNING id`,
+     [`ol-${key.split("/").pop()}`,title,author,b.first_publish_year||null,cover,`https://openlibrary.org${key}`,target.code]);
+    inserted+=result.rowCount; n++;
+   }
+   console.log(`Open Library metadata import ${target.code}:`,n,"records inspected");
+  } catch(e) { console.error(`Open Library fallback failed for ${target.code}:`,e.message); }
+ }
  // Polish open-library metadata fallback. Wolne Lektury terms and each work's licence
  // must be reviewed before any item can be published or placed behind a paywall.
  try {
