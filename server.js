@@ -242,6 +242,95 @@ async function seedNextClassicsForRightsReview(){
  }
  console.log('Additional classics queued for rights review:',works.length);
 }
+
+const { inflateRawSync } = require("node:zlib");
+function unzipEpubEntries(buffer){
+ const files=new Map();let eocd=-1;
+ for(let i=buffer.length-22;i>=Math.max(0,buffer.length-65558);i--){if(buffer.readUInt32LE(i)===0x06054b50){eocd=i;break;}}
+ if(eocd<0)throw new Error("EPUB ZIP directory missing");
+ const count=buffer.readUInt16LE(eocd+10);let pos=buffer.readUInt32LE(eocd+16);
+ for(let n=0;n<count;n++){
+  if(buffer.readUInt32LE(pos)!==0x02014b50)throw new Error("Invalid EPUB ZIP entry");
+  const method=buffer.readUInt16LE(pos+10),compressed=buffer.readUInt32LE(pos+20),nameLen=buffer.readUInt16LE(pos+28),extraLen=buffer.readUInt16LE(pos+30),commentLen=buffer.readUInt16LE(pos+32),local=buffer.readUInt32LE(pos+42);
+  const name=buffer.toString("utf8",pos+46,pos+46+nameLen);
+  const localName=buffer.readUInt16LE(local+26),localExtra=buffer.readUInt16LE(local+28),dataStart=local+30+localName+localExtra;
+  const raw=buffer.subarray(dataStart,dataStart+compressed);
+  if(method===0)files.set(name,Buffer.from(raw));else if(method===8)files.set(name,inflateRawSync(raw));else throw new Error("Unsupported EPUB compression");
+  pos+=46+nameLen+extraLen+commentLen;
+ }
+ return files;
+}
+function decodeBookHtml(html){
+ return html.replace(/<script[\\s\\S]*?<\\/script>/gi," ").replace(/<style[\\s\\S]*?<\\/style>/gi," ")
+  .replace(/<br\\s*\\/?\\s*>/gi,"\\n").replace(/<\\/(p|div|h[1-6]|li|section|blockquote|tr)>/gi,"\\n\\n")
+  .replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
+  .replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(Number(n)))
+  .replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16))).replace(/[ \\t]+/g," ").replace(/ *\\n */g,"\\n").replace(/\\n{3,}/g,"\\n\\n").trim();
+}
+function extractEpubText(buffer){
+ const files=unzipEpubEntries(buffer);
+ const container=files.get("META-INF/container.xml")?.toString("utf8");
+ if(!container)throw new Error("EPUB container metadata missing");
+ const opfPath=container.match(/full-path=["']([^"']+)["']/i)?.[1];
+ const opf=files.get(opfPath)?.toString("utf8");
+ if(!opf)throw new Error("EPUB package metadata missing");
+ const base=opfPath.includes("/")?opfPath.slice(0,opfPath.lastIndexOf("/")+1):"";
+ const manifest=new Map();
+ for(const m of opf.matchAll(/<item\\b([^>]+)>/gi)){
+  const id=m[1].match(/id=["']([^"']+)["']/i)?.[1],href=m[1].match(/href=["']([^"']+)["']/i)?.[1],media=m[1].match(/media-type=["']([^"']+)["']/i)?.[1];
+  if(id&&href&&(/xhtml|html/i.test(media||"")))manifest.set(id,base+href.replace(/^\\.\\//,""));
+ }
+ const spine=opf.match(/<spine\\b[^>]*>([\\s\\S]*?)<\\/spine>/i)?.[1]||"";
+ const ids=[...spine.matchAll(/<itemref\\b[^>]*idref=["']([^"']+)["']/gi)].map(x=>x[1]);
+ const parts=[];
+ for(const id of ids){const file=files.get(manifest.get(id));if(file){const t=decodeBookHtml(file.toString("utf8"));if(t.length>100)parts.push(t);}}
+ const text=parts.join("\\n\\n");
+ if(text.length<15000)throw new Error("EPUB text too short; not importing incomplete book");
+ return text;
+}
+async function importStandardEbooks(){
+ const works=[
+  {id:"pg-1342",title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,category:"relationships",slug:"jane-austen/pride-and-prejudice"},
+  {id:"pg-84",title:"Frankenstein",author:"Mary Shelley",death:1851,year:1831,category:"psychology",slug:"mary-shelley/frankenstein"},
+  {id:"pg-1661",title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,category:"personal",slug:"arthur-conan-doyle/the-adventures-of-sherlock-holmes"}
+ ];
+ const result=[];
+ for(const w of works){
+  try{
+   if(2026-w.death<71)throw new Error("Author term not expired in Poland");
+   const pageUrl="https://standardebooks.org/ebooks/"+w.slug;
+   const downloadUrl=pageUrl+"/downloads/epub";
+   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+    VALUES($1,$2,$3,'Standard Ebooks edition; original author term expired in Poland. Text edition dedicated by Standard Ebooks to CC0; text only, no cover imported.',$4,'en',$5,0,FALSE,NULL,$6,'public_domain',FALSE,$7,'Original work: Polish life+70 term expired; Standard Ebooks production contributions CC0 1.0',$8)
+    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
+    WHERE books.rights_status IN ('pending','public_domain')`,
+    [w.id,w.title,w.author,w.category,w.year,downloadUrl,pageUrl,"https://standardebooks.org/about"]);
+   const response=await fetch(downloadUrl,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain ebook ingestion)","Accept":"application/epub+zip, application/octet-stream;q=0.9"}});
+   if(!response.ok)throw new Error("Standard Ebooks download HTTP "+response.status);
+   const contentType=(response.headers.get("content-type")||"").toLowerCase();
+   if(contentType.includes("text/html"))throw new Error("Download endpoint returned HTML, not EPUB");
+   const bytes=Buffer.from(await response.arrayBuffer());
+   if(bytes.length<10000||bytes.length>30000000)throw new Error("EPUB size outside expected range");
+   const textBody=extractEpubText(bytes);
+   const chunks=[];let rest=textBody;
+   while(rest.length){let cut=Math.min(2800,rest.length);if(cut<rest.length){const p=rest.lastIndexOf(" ",cut);if(p>cut*.65)cut=p;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
+   if(chunks.length<5)throw new Error("Insufficient page count");
+   const client=await pool.connect();
+   try{
+    await client.query("BEGIN");
+    const rights=await client.query("SELECT rights_status FROM books WHERE id=$1 FOR UPDATE",[w.id]);
+    if(!rights.rows[0]||rights.rows[0].rights_status!=="public_domain")throw new Error("Rights status is not approved");
+    await client.query("DELETE FROM book_pages WHERE book_id=$1",[w.id]);
+    for(let i=0;i<chunks.length;i++)await client.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[w.id,i+1,chunks[i]]);
+    await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=$2 WHERE id=$1",[w.id,downloadUrl]);
+    await client.query("COMMIT");
+   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+   result.push({id:w.id,title:w.title,status:"published",pages:chunks.length});
+  }catch(e){console.error("Standard Ebooks import skipped:",w.title,e.message);result.push({id:w.id,title:w.title,status:"skipped",reason:e.message});}
+ }
+ console.log("Standard Ebooks full-text import:",JSON.stringify(result));
+ return result;
+}
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -599,7 +688,7 @@ async function importApprovedOnlineBooks(limit=20) {
  }
  return {processed:results.length,results};
 }
-app.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
+app.post("/api/admin/import-standard-ebooks",auth,admin,async(_req,res)=>{try{const result=await importStandardEbooks();res.json({ok:true,results:result});}catch(e){res.status(500).json({error:e.message});}});\napp.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
  try{const result=await importApprovedOnlineBooks(req.body?.limit);res.json({ok:true,...result});}
  catch(e){res.status(500).json({error:e.message});}
 });
