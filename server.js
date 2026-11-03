@@ -219,6 +219,29 @@ async function seedMoreSlavicClassicsForReview(){
  }
  console.log('Additional Slavic classics queued for edition and licence review:',works.length);
 }
+async function seedNextClassicsForRightsReview(){
+ const works=[
+  {id:'en-moby-dick',title:'Moby-Dick; or, The Whale',author:'Herman Melville',death:1891,year:1851,lang:'en'},
+  {id:'en-great-expectations',title:'Great Expectations',author:'Charles Dickens',death:1870,year:1861,lang:'en'},
+  {id:'en-dracula',title:'Dracula',author:'Bram Stoker',death:1912,year:1897,lang:'en'},
+  {id:'ru-oblomov',title:'Обломов',author:'Иван Гончаров',death:1891,year:1859,lang:'ru'},
+  {id:'ru-fathers-and-sons-extra',title:'Записки охотника',author:'Иван Тургенев',death:1883,year:1852,lang:'ru'},
+  {id:'ru-quiet-don-excluded',title:'Капитанская дочка',author:'Александр Пушкин',death:1837,year:1836,lang:'ru'},
+  {id:'pl-quovadis-extra',title:'Trylogia: Ogniem i mieczem',author:'Henryk Sienkiewicz',death:1916,year:1884,lang:'pl'},
+  {id:'pl-emancypantki',title:'Emancypantki',author:'Bolesław Prus',death:1912,year:1894,lang:'pl'},
+  {id:'pl-chlopi',title:'Chłopi',author:'Władysław Reymont',death:1925,year:1904,lang:'pl'},
+  {id:'uk-mykola-dzherya',title:'Микола Джеря',author:'Іван Нечуй-Левицький',death:1918,year:1878,lang:'uk'},
+  {id:'uk-boryslav',title:'Борислав сміється',author:'Іван Франко',death:1916,year:1882,lang:'uk'},
+  {id:'uk-kobzar',title:'Кобзар',author:'Тарас Шевченко',death:1861,year:1840,lang:'uk'}
+ ];
+ for(const w of works){
+  if(2026-w.death<71)continue;
+  await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,'Full-length classic candidate. Exact source edition, transcription and commercial distribution rights require verification.','personal',$4,$5,0,FALSE,NULL,NULL,'pending',FALSE,$6,'Author death term appears expired; edition and source rights remain unverified',NULL)
+   ON CONFLICT(id) DO NOTHING`,[w.id,w.title,w.author,w.lang,w.year,'https://www.google.com/search?q='+encodeURIComponent(w.title+' full text Wikisource')]);
+ }
+ console.log('Additional classics queued for rights review:',works.length);
+}
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -647,7 +670,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
