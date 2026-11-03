@@ -139,7 +139,7 @@ async function initDatabase() {
 
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
- const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50}];
+ const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
  let inserted = 0;
  for (const target of targets) {
   try {
@@ -167,7 +167,7 @@ async function importCatalogMetadata() {
  }
  // Fallback for English and Russian metadata. Open Library language query is
  // language:eng / language:rus. Records remain unpublished pending rights review.
- for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"}]) {
+ for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"},{code:"uk",ol:"ukr"}]) {
   try {
    const q=encodeURIComponent(`language:${target.ol}`);
    const fields="key,title,author_name,first_publish_year,cover_i";
@@ -187,12 +187,33 @@ async function importCatalogMetadata() {
      (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
      VALUES($1,$2,$3,'Imported bibliographic metadata; text and distribution rights not verified','personal',$4,$5,0,FALSE,$6,NULL,'pending',FALSE,$7)
      ON CONFLICT(id) DO NOTHING RETURNING id`,
-     [`ol-${key.split("/").pop()}`,title,author,b.first_publish_year||null,cover,`https://openlibrary.org${key}`,target.code]);
+     [`ol-${key.split("/").pop()}`,title,author,target.code,b.first_publish_year||null,cover,`https://openlibrary.org${key}`]);
     inserted+=result.rowCount; n++;
    }
    console.log(`Open Library metadata import ${target.code}:`,n,"records inspected");
   } catch(e) { console.error(`Open Library fallback failed for ${target.code}:`,e.message); }
  }
+ // Ukrainian Wikisource metadata discovery; all records stay unpublished until rights review.
+ try {
+  const apiUrl="https://uk.wikisource.org/w/api.php?action=query&list=categorymembers&cmtitle="+encodeURIComponent("Категорія:Українська література")+"&cmnamespace=0&cmlimit=100&format=json&origin=*";
+  const response=await fetch(apiUrl,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (metadata discovery)"}});
+  if(!response.ok) throw new Error(`Wikisource HTTP ${response.status}`);
+  const data=await response.json();
+  let n=0;
+  for(const item of (data.query?.categorymembers||[])) {
+   if(n>=50) break;
+   const title=String(item.title||"").trim();
+   const pageId=Number(item.pageid||0);
+   if(!title||!pageId) continue;
+   const result=await pool.query(`INSERT INTO books
+    (id,title,author,description,category,language,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
+    VALUES($1,$2,'Автор не указан','Метаданные из Украинской Викитеки; права на распространение не проверены','personal','uk',0,FALSE,NULL,$3,'pending',FALSE,$3)
+    ON CONFLICT(id) DO NOTHING RETURNING id`,
+    [`uk-ws-${pageId}`,title,`https://uk.wikisource.org/wiki/${encodeURIComponent(title.replace(/ /g,"_"))}`]);
+   inserted+=result.rowCount; n++;
+  }
+  console.log("Ukrainian Wikisource metadata:",n,"records inspected");
+ } catch(e) { console.error("Ukrainian Wikisource import failed:",e.message); }
  // Polish open-library metadata fallback. Wolne Lektury terms and each work's licence
  // must be reviewed before any item can be published or placed behind a paywall.
  try {
