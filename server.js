@@ -249,6 +249,62 @@ async function importCatalogMetadata() {
  console.log("Catalog totals by language:",JSON.stringify(counts.rows));
  console.log("Catalog metadata import finished; inserted:",inserted,"(all entries pending rights review)");
 }
+
+async function importFullPublicDomainBooks() {
+ // Curated original-language works: authors died more than 70 years ago.
+ // Each item is checked against its Project Gutenberg record before import.
+ const works = [
+  {id:1342,title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,lang:"en",category:"relationships",description:"A classic novel of love, judgment and social expectations."},
+  {id:84,title:"Frankenstein; or, The Modern Prometheus",author:"Mary Wollstonecraft Shelley",death:1851,year:1818,lang:"en",category:"psychology",description:"A landmark Gothic novel about ambition, responsibility and isolation."},
+  {id:11,title:"Alice’s Adventures in Wonderland",author:"Lewis Carroll",death:1898,year:1865,lang:"en",category:"personal",description:"A classic fantasy adventure through a world of imagination and logic."},
+  {id:1661,title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,lang:"en",category:"personal",description:"The complete collection of twelve Sherlock Holmes detective stories."},
+  {id:174,title:"The Picture of Dorian Gray",author:"Oscar Wilde",death:1900,year:1890,lang:"en",category:"psychology",description:"A classic novel exploring beauty, morality and the cost of vanity."}
+ ];
+ let imported=0;
+ for(const w of works){
+  if(2026-w.death<71) continue;
+  const id="pg-full-"+w.id;
+  const exists=await pool.query("SELECT id FROM books WHERE id=$1",[id]);
+  if(exists.rowCount) continue;
+  let textBody=null,lastError=null;
+  const urls=[
+   `https://www.gutenberg.org/cache/epub/${w.id}/pg${w.id}.txt.utf8`,
+   `https://www.gutenberg.org/files/${w.id}/${w.id}-0.txt`,
+   `https://www.gutenberg.org/files/${w.id}/${w.id}.txt`
+  ];
+  for(const url of urls){
+   try{
+    const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (full text import; contact: support@zer0lifelabs.com)"}});
+    if(!response.ok) throw new Error("HTTP "+response.status);
+    const body=await response.text();
+    if(body.length<12000) throw new Error("Downloaded text is too short to be a full book");
+    textBody=body;break;
+   }catch(e){lastError=e;}
+  }
+  if(!textBody){console.warn("Full book import skipped:",w.title,lastError?.message);continue;}
+  const start=textBody.search(/\\*\\*\\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+  if(start>=0){const nl=textBody.indexOf("\n",start);textBody=textBody.slice(nl+1);}
+  const end=textBody.search(/\\*\\*\\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+  if(end>=0) textBody=textBody.slice(0,end);
+  textBody=textBody.replace(/\\r/g,"").trim();
+  if(textBody.length<10000){console.warn("Full book import skipped after cleanup:",w.title);continue;}
+  const chunks=[];let rest=textBody;
+  while(rest.length){let cut=Math.min(2600,rest.length);if(cut<rest.length){const boundary=rest.lastIndexOf(" ",cut);if(boundary>cut*.65)cut=boundary;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
+  if(chunks.length<10) continue;
+  await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
+   VALUES($1,$2,$3,$4,$5,$6,$7,0,FALSE,NULL,$8,'public_domain',FALSE,$8)
+   ON CONFLICT(id) DO NOTHING`,
+   [id,w.title,w.author,w.description,w.category,w.lang,w.year,`https://www.gutenberg.org/ebooks/${w.id}`]);
+  for(let i=0;i<chunks.length;i++){
+   await pool.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3) ON CONFLICT(book_id,page_number) DO NOTHING",[id,i+1,chunks[i]]);
+  }
+  await pool.query("UPDATE books SET is_published=TRUE WHERE id=$1 AND rights_status='public_domain'",[id]);
+  imported++;
+  console.log("Imported full public-domain book:",w.title,"pages:",chunks.length);
+ }
+ console.log("Full public-domain book import finished; new books:",imported);
+}
+
 async function ensureUser(u) {
  if(!pool) throw new Error("DATABASE_URL is not configured");
  await pool.query(`INSERT INTO users(telegram_id,username,first_name,language_code) VALUES($1,$2,$3,$4)
@@ -454,7 +510,7 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 
 app.use(express.static(path.join(__dirname,"public")));
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); await importFullPublicDomainBooks(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
