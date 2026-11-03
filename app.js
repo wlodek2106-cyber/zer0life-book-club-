@@ -65,13 +65,22 @@ function openBook(id){
  const b=state.books.find(x=>x.id===id)||localBooks.find(x=>x.id===id);if(!b)return;
  const p=state.reading.find(x=>x.book_id===id);
  openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover||""}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
- <div class="notice">Книга пока представлена карточкой. Полный текст появится только после подтверждения прав на распространение.</div>
+ <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
+ <div id="bookPages" style="margin:16px 0"></div>
  <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?("Статус: "+(p.status==="completed"?"Прочитано":p.status==="reading"?"Читаю":"В планах")+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Текущая страница</label><input id="progressPage" type="number" min="0" value="${p?.current_page||0}" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Всего страниц (если известно)</label><input id="progressTotal" type="number" min="1" value="${p?.total_pages||""}" placeholder="Например, 240" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <button class="gold-button" id="saveProgress">Сохранить прогресс</button><button class="gold-button" id="completeBook" style="background:#29251e;color:#d6bd8b">Отметить прочитанной</button>
  <button class="gold-button" id="buyBook" style="background:#29251e;color:#d6bd8b">Купить книгу · ${b.priceStars||0} Stars</button>
  <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?"В избранном":"В избранное"}</button>`);
+ const pagesBox=$("#bookPages");
+ if(initData()){
+  api("/api/books/"+encodeURIComponent(id)+"/pages").then(data=>{
+   const esc=s=>String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+   const pages=data.pages||[];
+   pagesBox.innerHTML=pages.length?("<h3>Чтение</h3>"+pages.map(x=>'<section style="padding:14px 0;border-bottom:1px solid #39352e"><div class="eyebrow">СТРАНИЦА '+x.page_number+'</div><p style="white-space:pre-wrap;line-height:1.7">'+esc(x.page_text)+'</p></section>').join("")+(data.previewOnly?'<p class="notice">Это бесплатный фрагмент. Для полного доступа оформите подписку.</p>':"")):'<p class="notice">Текст пока не загружен. Администратор добавит страницы после проверки прав на книгу.</p>';
+  }).catch(()=>{pagesBox.innerHTML='<p class="notice">Не удалось загрузить страницы. Откройте приложение через Telegram.</p>';});
+ } else { pagesBox.innerHTML='<p class="notice">Для чтения войдите через Telegram.</p>'; }
  $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#buyBook").onclick=()=>startCheckout("/api/pay/book",{bookId:b.id});
