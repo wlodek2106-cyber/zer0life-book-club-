@@ -515,6 +515,16 @@ app.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
  try{const result=await importApprovedOnlineBooks(req.body?.limit);res.json({ok:true,...result});}
  catch(e){res.status(500).json({error:e.message});}
 });
+app.post("/api/internal/catalog-sync",async(req,res)=>{
+ const expected=process.env.CATALOG_SYNC_TOKEN;
+ const supplied=String(req.headers.authorization||"").replace(/^Bearer\\s+/i,"");
+ if(!expected||supplied!==expected)return res.status(401).json({error:"Unauthorized"});
+ try{
+  await importCatalogMetadata();
+  const counts=await pool.query("SELECT language,COUNT(*)::int AS total,COUNT(*) FILTER (WHERE rights_status='pending')::int AS pending FROM books GROUP BY language ORDER BY language");
+  res.json({ok:true,counts:counts.rows});
+ }catch(e){console.error("Scheduled catalog sync failed:",e.message);res.status(500).json({error:"Catalog sync failed"});}
+});
 app.post("/api/admin/discover-catalog",auth,admin,async(req,res)=>{
  try{
   await importCatalogMetadata();
