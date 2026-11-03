@@ -566,8 +566,23 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 });
 
 app.use(express.static(path.join(__dirname,"public")));
+let catalogSyncTimer=null;
+function scheduleCatalogSync(){
+ const delay=24*60*60*1000;
+ if(catalogSyncTimer)clearTimeout(catalogSyncTimer);
+ catalogSyncTimer=setTimeout(async function runCatalogSync(){
+  try{
+   console.log('Daily catalog sync started');
+   await importCatalogMetadata();
+   const result=await pool.query("SELECT language,COUNT(*)::int AS total FROM books GROUP BY language ORDER BY language");
+   console.log('Daily catalog sync complete',JSON.stringify(result.rows));
+  }catch(error){console.error('Daily catalog sync failed',error.message);}
+  finally{scheduleCatalogSync();}
+ },delay);
+ console.log('Daily catalog sync scheduled');
+}
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
