@@ -473,7 +473,7 @@ async function importApprovedOnlineBooks(limit=20) {
   try{
    const u=new URL(book.content_url);
    const host=u.hostname.toLowerCase();
-   if(!(host==="gutenberg.org"||host.endsWith(".gutenberg.org")||host==="wolnelektury.pl"||host.endsWith(".wolnelektury.pl")||host.endsWith(".wikisource.org")))
+   if(!(host==="gutenberg.org"||host.endsWith(".gutenberg.org")||host.endsWith(".wikisource.org")))
     throw new Error("Source host is not on the approved import allowlist");
    if(u.protocol!=="https:") throw new Error("HTTPS source required");
    const response=await fetch(u.toString(),{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (licensed full-text ingestion)"}});
