@@ -181,32 +181,34 @@ async function importCatalogMetadata() {
    }
   } catch(e) { console.error(`Catalog metadata import failed for ${target.code}:`,e.message); }
  }
- // Fallback for English and Russian metadata. Open Library language query is
- // language:eng / language:rus. Records remain unpublished pending rights review.
- for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"},{code:"uk",ol:"ukr"}]) {
+ // Open Library is used for limited bibliographic discovery only, not as a bulk text backend.
+ // Its API documents language filters inside q (e.g. language:fre), and work keys are OL…W identifiers.
+ for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"},{code:"pl",ol:"pol"},{code:"uk",ol:"ukr"}]) {
   try {
-   const fields="key,title,author_name,first_publish_year,cover_i";
-   const urls=[`https://openlibrary.org/search.json?language=${target.ol}&limit=100&fields=${fields}`,`https://openlibrary.org/search.json?q=${encodeURIComponent(`language:${target.ol}`)}&limit=100&fields=${fields}`];
-   let data=null,lastError=null;
-   for(const url of urls){try{const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (metadata discovery)"}});if(!response.ok)throw new Error(`Open Library HTTP ${response.status}`);data=await response.json();break;}catch(e){lastError=e;}}
-   if(!data) throw lastError||new Error("Open Library unavailable");
+   const fields="key,title,author_name,first_publish_year,cover_i,language,has_fulltext,edition_count";
+   const url="https://openlibrary.org/search.json?q="+encodeURIComponent("language:"+target.ol)+"&limit=25&fields="+encodeURIComponent(fields);
+   const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (book discovery)"}});
+   if(!response.ok) throw new Error("Open Library HTTP "+response.status);
+   const data=await response.json();
    let n=0;
-   for(const b of (data.docs||[])) {
-    if(n>=50) break;
-    const title=String(b.title||"").trim();
-    const key=String(b.key||"").trim();
-    if(!title||!key||!key.startsWith("/works/")) continue;
-    const author=(b.author_name||[]).join(", ")||"Unknown";
-    const cover=b.cover_i?`https://covers.openlibrary.org/b/id/${b.cover_i}-L.jpg`:null;
+   for(const item of (data.docs||[])){
+    const title=String(item.title||"").trim();
+    let key=String(item.key||"").trim();
+    if(!title) continue;
+    if(key.startsWith("/works/")) key=key.split("/").pop();
+    if(!/^OL[0-9]+W$/.test(key)) continue;
+    const author=(item.author_name||[]).join(", ")||"Unknown";
+    const cover=item.cover_i?"https://covers.openlibrary.org/b/id/"+item.cover_i+"-L.jpg":null;
+    const source="https://openlibrary.org/works/"+key;
     const result=await pool.query(`INSERT INTO books
      (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
-     VALUES($1,$2,$3,'Imported bibliographic metadata; text and distribution rights not verified','personal',$4,$5,0,FALSE,$6,NULL,'pending',FALSE,$7)
+     VALUES($1,$2,$3,$4,'personal',$5,$6,0,FALSE,$7,NULL,'pending',FALSE,$8)
      ON CONFLICT(id) DO NOTHING RETURNING id`,
-     [`ol-${key.split("/").pop()}`,title,author,target.code,b.first_publish_year||null,cover,`https://openlibrary.org${key}`]);
-    inserted+=result.rowCount; n++;
+     ["ol-"+key,title,author,"Open Library discovery record; full text and commercial distribution rights not verified",target.code,item.first_publish_year||null,cover,source]);
+    inserted+=result.rowCount;n++;
    }
-   console.log(`Open Library metadata import ${target.code}:`,n,"records inspected");
-  } catch(e) { console.error(`Open Library fallback failed for ${target.code}:`,e.message); }
+   console.log("Open Library metadata import "+target.code+":",n,"records inspected; API matches:",data.numFound||0);
+  }catch(e){console.error("Open Library discovery failed for "+target.code+":",e.message);}
  }
  // Ukrainian Wikisource metadata discovery; all records stay unpublished until rights review.
  try {
