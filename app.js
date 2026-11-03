@@ -73,7 +73,7 @@ function openBook(id){
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Текущая страница</label><input id="progressPage" type="number" min="0" value="${p?.current_page||0}" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Всего страниц (если известно)</label><input id="progressTotal" type="number" min="1" value="${p?.total_pages||""}" placeholder="Например, 240" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <button class="gold-button" id="saveProgress">Сохранить прогресс</button><button class="gold-button" id="completeBook" style="background:#29251e;color:#d6bd8b">Отметить прочитанной</button>
- <button class="gold-button" id="buyBook" style="background:#29251e;color:#d6bd8b">Купить книгу · ${b.priceStars||0} Stars</button>
+${state.me?.isAdmin?"":'<button class="gold-button" id="buyBook" style="background:#29251e;color:#d6bd8b">Купить книгу · '+(b.priceStars||0)+' Stars</button>'}
  <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?tx("В избранном","В избранном","W ulubionych"):tx("В избранное","В избранное","Dodaj do ulubionych")}</button>`);
  const pagesBox=$("#bookPages");
  if(initData()){
@@ -85,7 +85,7 @@ function openBook(id){
  } else { pagesBox.innerHTML='<p class="notice">Для чтения войдите через Telegram.</p>'; }
  $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
- $("#buyBook").onclick=()=>startCheckout("/api/pay/book",{bookId:b.id});
+ if($("#buyBook"))$("#buyBook").onclick=()=>startCheckout("/api/pay/book",{bookId:b.id});
  $("#saveBook").onclick=async()=>{try{if(state.favorites.has(b.id)){await api("/api/favorites/"+encodeURIComponent(b.id),{method:"DELETE"});state.favorites.delete(b.id)}else{await api("/api/favorites/"+encodeURIComponent(b.id),{method:"POST"});state.favorites.add(b.id)}openBook(id)}catch(e){alert("Откройте приложение через Telegram, чтобы сохранять избранное.")}};
 }
 async function startCheckout(path, body={}) {
