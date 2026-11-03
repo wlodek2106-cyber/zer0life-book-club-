@@ -67,6 +67,59 @@ async function botApi(method, body) {
  });
  const j=await r.json(); if(!j.ok) throw new Error(j.description||"Telegram Bot API error"); return j.result;
 }
+async function initDatabase() {
+ if (!pool) throw new Error("DATABASE_URL is not configured");
+ await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+   telegram_id BIGINT PRIMARY KEY, username TEXT, first_name TEXT,
+   language_code TEXT DEFAULT 'en', created_at TIMESTAMPTZ DEFAULT NOW(),
+   updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+  CREATE TABLE IF NOT EXISTS books (
+   id TEXT PRIMARY KEY, title TEXT NOT NULL, author TEXT NOT NULL,
+   description TEXT DEFAULT '', category TEXT NOT NULL, language TEXT DEFAULT 'en',
+   year INTEGER, price_stars INTEGER DEFAULT 0, vip_only BOOLEAN DEFAULT FALSE,
+   cover_url TEXT, content_url TEXT, rights_status TEXT DEFAULT 'pending',
+   is_published BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS year INTEGER;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+  CREATE TABLE IF NOT EXISTS memberships (
+   telegram_id BIGINT PRIMARY KEY REFERENCES users(telegram_id),
+   status TEXT DEFAULT 'inactive', plan TEXT DEFAULT 'free',
+   expires_at TIMESTAMPTZ, updated_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  ALTER TABLE memberships ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'free';
+  ALTER TABLE memberships ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+  CREATE TABLE IF NOT EXISTS purchases (
+   id BIGSERIAL PRIMARY KEY, telegram_id BIGINT REFERENCES users(telegram_id),
+   book_id TEXT REFERENCES books(id), telegram_payment_charge_id TEXT UNIQUE,
+   total_amount INTEGER NOT NULL, currency TEXT DEFAULT 'XTR',
+   created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE TABLE IF NOT EXISTS favorites (
+   telegram_id BIGINT REFERENCES users(telegram_id), book_id TEXT REFERENCES books(id),
+   created_at TIMESTAMPTZ DEFAULT NOW(), PRIMARY KEY (telegram_id, book_id)
+  );
+  CREATE TABLE IF NOT EXISTS reading_progress (
+   telegram_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
+   book_id TEXT REFERENCES books(id) ON DELETE CASCADE,
+   current_page INTEGER NOT NULL DEFAULT 0,
+   total_pages INTEGER,
+   status TEXT NOT NULL DEFAULT 'planned',
+   updated_at TIMESTAMPTZ DEFAULT NOW(),
+   completed_at TIMESTAMPTZ,
+   PRIMARY KEY (telegram_id, book_id),
+   CHECK (current_page >= 0),
+   CHECK (total_pages IS NULL OR total_pages > 0),
+   CHECK (status IN ('planned','reading','completed'))
+  );
+  CREATE INDEX IF NOT EXISTS reading_progress_user_status_idx ON reading_progress(telegram_id,status);
+ `);
+ console.log("Database schema ready");
+}
+
 async function ensureUser(u) {
  if(!pool) throw new Error("DATABASE_URL is not configured");
  await pool.query(`INSERT INTO users(telegram_id,username,first_name,language_code) VALUES($1,$2,$3,$4)
@@ -85,7 +138,10 @@ async function catalog(req,res) {
  const rows=sampleBooks.filter(b=>(cat==="all"||b.category===cat)&&(lang==="all"||b.lang===lang)&&(!q||`${b.title} ${b.author} ${b.description}`.toLowerCase().includes(q)));
  res.json({categories,books:rows});
 }
-app.get("/api/health",(_req,res)=>res.json({ok:true,app:"Zer0Life Book Club",database:!!pool}));
+app.get("/api/health",async(_req,res)=>{
+ try{if(pool)await pool.query("SELECT 1");res.json({ok:true,app:"Zer0Life Book Club",database:!!pool,databaseConnected:!!pool});}
+ catch(e){res.status(503).json({ok:false,app:"Zer0Life Book Club",database:false,error:"Database connection failed"});}
+});
 app.get("/api/catalog",catalog);
 app.get("/api/me",auth,async(req,res)=>{
  try{
@@ -95,12 +151,31 @@ app.get("/api/me",auth,async(req,res)=>{
    pool.query("SELECT book_id FROM favorites WHERE telegram_id=$1",[req.user.id]),
    pool.query("SELECT book_id FROM purchases WHERE telegram_id=$1",[req.user.id])
   ]);
-  res.json({user:req.user,membership:m.rows[0]||{status:"inactive"},favorites:f.rows.map(x=>x.book_id),ownedBooks:p.rows.map(x=>x.book_id)});
+  const progress=await pool.query("SELECT book_id,current_page,total_pages,status,updated_at,completed_at FROM reading_progress WHERE telegram_id=$1 ORDER BY updated_at DESC",[req.user.id]);
+  res.json({user:req.user,isAdmin:ADMINS.has(String(req.user.id)),membership:m.rows[0]||{status:"inactive",plan:"free"},favorites:f.rows.map(x=>x.book_id),ownedBooks:p.rows.map(x=>x.book_id),reading:progress.rows});
  }catch(e){res.status(503).json({error:e.message});}
 });
 app.post("/api/favorites/:bookId",auth,async(req,res)=>{
  try{await ensureUser(req.user);await pool.query("INSERT INTO favorites(telegram_id,book_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.user.id,req.params.bookId]);res.json({ok:true});}
  catch(e){res.status(500).json({error:e.message});}
+});
+app.get("/api/reading",auth,async(req,res)=>{
+ try{await ensureUser(req.user);const r=await pool.query("SELECT book_id,current_page,total_pages,status,updated_at,completed_at FROM reading_progress WHERE telegram_id=$1 ORDER BY updated_at DESC",[req.user.id]);res.json({reading:r.rows});}
+ catch(e){res.status(503).json({error:e.message});}
+});
+app.post("/api/reading/:bookId",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const page=Math.max(0,Math.floor(Number(req.body.currentPage)||0));
+  const total=req.body.totalPages==null?null:Math.max(1,Math.floor(Number(req.body.totalPages)||1));
+  const status=req.body.status==="completed"?"completed":(page>0?"reading":"planned");
+  const current=total==null?page:Math.min(page,total);
+  const r=await pool.query(`INSERT INTO reading_progress(telegram_id,book_id,current_page,total_pages,status,completed_at,updated_at)
+   VALUES($1,$2,$3,$4,$5,CASE WHEN $5='completed' THEN NOW() ELSE NULL END,NOW())
+   ON CONFLICT(telegram_id,book_id) DO UPDATE SET current_page=EXCLUDED.current_page,total_pages=COALESCE(EXCLUDED.total_pages,reading_progress.total_pages),status=EXCLUDED.status,completed_at=CASE WHEN EXCLUDED.status='completed' THEN COALESCE(reading_progress.completed_at,NOW()) ELSE NULL END,updated_at=NOW()
+   RETURNING book_id,current_page,total_pages,status,updated_at,completed_at`,[req.user.id,req.params.bookId,current,total,status]);
+  res.json({ok:true,progress:r.rows[0]});
+ }catch(e){res.status(500).json({error:e.message});}
 });
 app.delete("/api/favorites/:bookId",auth,async(req,res)=>{
  try{await pool.query("DELETE FROM favorites WHERE telegram_id=$1 AND book_id=$2",[req.user.id,req.params.bookId]);res.json({ok:true});}
@@ -177,13 +252,17 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 });
 
 app.use(express.static(path.join(__dirname,"public")));
-const server = app.listen(PORT, async () => {
- console.log(`Zer0Life Book Club API listening on ${PORT}`);
- if (BOT_TOKEN) {
-  try {
-   const webhookUrl = `${PUBLIC_API_URL}/telegram/webhook`;
-   const result = await botApi("setWebhook", { url: webhookUrl, secret_token: WEBHOOK_SECRET, allowed_updates: ["message", "pre_checkout_query"] });
-   console.log("Telegram webhook registered:", result === true ? "yes" : "no");
-  } catch (e) { console.error("Telegram webhook registration failed:", e.message); }
- } else console.warn("BOT_TOKEN missing; bot webhook not registered.");
-});
+async function start() {
+ if (pool) await initDatabase();
+ app.listen(PORT, async () => {
+  console.log(`Zer0Life Book Club API listening on ${PORT}`);
+  if (BOT_TOKEN) {
+   try {
+    const webhookUrl = `${PUBLIC_API_URL}/telegram/webhook`;
+    const result = await botApi("setWebhook", { url: webhookUrl, secret_token: WEBHOOK_SECRET, allowed_updates: ["message", "pre_checkout_query"] });
+    console.log("Telegram webhook registered:", result === true ? "yes" : "no");
+   } catch (e) { console.error("Telegram webhook registration failed:", e.message); }
+  } else console.warn("BOT_TOKEN missing; bot webhook not registered.");
+ });
+}
+start().catch(e=>{console.error("Startup failed:",e.message);process.exit(1);});
