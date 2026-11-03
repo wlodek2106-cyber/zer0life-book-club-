@@ -402,7 +402,7 @@ app.post("/api/pay/book",auth,async(req,res)=>{
  try{
   await ensureUser(req.user);
   const r=await pool.query("SELECT id,title,price_stars FROM books WHERE id=$1 AND is_published=true AND rights_status IN ('licensed','public_domain','original')",[req.body.bookId]);
-  const book=r.rows[0]; if(!book)return res.status(404).json({error:"Published, rights-cleared book not found"});
+  const book=r.rows[0]; if(!book)return res.status(404).json({error:"Published, rights-cleared book not found"});\n  if(ADMINS.has(String(req.user.id)))return res.json({ok:true,message:"Administrator access is free. No payment required."});
   if(!Number.isInteger(book.price_stars)||book.price_stars<1)return res.status(503).json({error:"Book price is not configured"});
   const payload=`book:${book.id}:${req.user.id}:${crypto.randomUUID()}`;
   await pool.query("INSERT INTO pending_payments(payload,telegram_id,kind,book_id,amount) VALUES($1,$2,'book',$3,$4)",[payload,req.user.id,book.id,book.price_stars]);
