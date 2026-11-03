@@ -154,6 +154,31 @@ async function seedOriginalStarterBooks() {
   console.log("Short starter guides hidden from catalog:", result.rowCount);
 }
 
+
+async function seedInitialEnglishClassics(){
+ const works=[
+  {id:1342,title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,category:"relationships"},
+  {id:84,title:"Frankenstein; or, The Modern Prometheus",author:"Mary Shelley",death:1851,year:1818,category:"psychology"},
+  {id:11,title:"Alice’s Adventures in Wonderland",author:"Lewis Carroll",death:1898,year:1865,category:"personal"},
+  {id:1661,title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,category:"personal"},
+  {id:174,title:"The Picture of Dorian Gray",author:"Oscar Wilde",death:1900,year:1890,category:"psychology"}
+ ];
+ let added=0;
+ for(const w of works){
+  if(2026-w.death<71)continue;
+  const id="pg-"+w.id;
+  const contentUrl="https://gutenberg.pglaf.org/cache/epub/"+w.id+"/pg"+w.id+".txt";
+  const sourceUrl="https://www.gutenberg.org/ebooks/"+w.id;
+  const evidence="https://eli.gov.pl/api/acts/DU/2025/24/text.html";
+  const r=await pool.query(`INSERT INTO books
+   (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,$4,$5,'en', $6,0,FALSE,NULL,$7,'public_domain',FALSE,$8,$9,$10)
+   ON CONFLICT(id) DO NOTHING RETURNING id`,
+   [id,w.title,w.author,"Original English edition. Author died more than 70 years ago; edition and source terms retained for review.",w.category,w.year,contentUrl,sourceUrl,"Original work; Polish Copyright Act Art. 36 life+70 (edition/source review required)",evidence]);
+  added+=r.rowCount;
+ }
+ console.log("Initial English classics queued:",added);
+}
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -582,7 +607,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await importCatalogMetadata(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
