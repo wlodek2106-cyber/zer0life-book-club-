@@ -43,13 +43,14 @@ const localBooks=[
 ];
 const $=s=>document.querySelector(s);
 const tr=()=>copy[state.lang];
+const tx=(en,ru,pl)=>state.lang==="ru"?ru:state.lang==="pl"?pl:en;
 async function loadBooks(){
  try{const r=await fetch(apiUrl(`/api/catalog?category=${encodeURIComponent(state.category)}&q=${encodeURIComponent(state.query)}&lang=${state.filter}`));if(!r.ok)throw 0;const d=await r.json();state.books=d.books;}
  catch{state.books=localBooks.filter(b=>(state.category==="all"||b.category===state.category)&&(state.filter==="all"||b.lang===state.filter)&&(!state.query||`${b.title} ${b.author}`.toLowerCase().includes(state.query.toLowerCase())));}
  renderBooks();renderCategories();
 }
 function renderCategories(){
- $("#categoryGrid").innerHTML=categories.map(([id,icon])=>{let label=id==="all"?(state.lang==="ru"?"Все книги":state.lang==="pl"?"Wszystkie":"All books"):catNames[id][["en","ru","pl"].indexOf(state.lang)];return `<button class="category ${state.category===id?"active":""}" data-cat="${id}"><span class="cat-icon">${icon}</span><b>${label}</b></button>`}).join("");
+ $("#categoryGrid").innerHTML=categories.map(([id,icon])=>{let label=id==="all"?tx("All books","Все книги","Wszystkie"):catNames[id][["en","ru","pl"].indexOf(state.lang)];return `<button class="category ${state.category===id?"active":""}" data-cat="${id}"><span class="cat-icon">${icon}</span><b>${label}</b></button>`}).join("");
  document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{state.category=b.dataset.cat;state.savedOnly=false;loadBooks()});
 }
 function renderBooks(){
@@ -67,12 +68,12 @@ function openBook(id){
  openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover||""}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
  <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
  <div id="bookPages" style="margin:16px 0"></div>
- <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?("Статус: "+(p.status==="completed"?"Прочитано":p.status==="reading"?"Читаю":"В планах")+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
+ <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?(tx("Статус: ","Статус: ","Status: ")+(p.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):p.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach"))+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Текущая страница</label><input id="progressPage" type="number" min="0" value="${p?.current_page||0}" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Всего страниц (если известно)</label><input id="progressTotal" type="number" min="1" value="${p?.total_pages||""}" placeholder="Например, 240" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <button class="gold-button" id="saveProgress">Сохранить прогресс</button><button class="gold-button" id="completeBook" style="background:#29251e;color:#d6bd8b">Отметить прочитанной</button>
  <button class="gold-button" id="buyBook" style="background:#29251e;color:#d6bd8b">Купить книгу · ${b.priceStars||0} Stars</button>
- <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?"В избранном":"В избранное"}</button>`);
+ <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?tx("В избранном","В избранном","W ulubionych"):tx("В избранное","В избранное","Dodaj do ulubionych")}</button>`);
  const pagesBox=$("#bookPages");
  if(initData()){
   api("/api/books/"+encodeURIComponent(id)+"/pages").then(data=>{
@@ -126,9 +127,9 @@ $("#profileButton").onclick=async()=>{
  await loadAccount();
  if(!state.me){const msg=String(state.accountError||"Не удалось получить профиль").replace(/[<>&"]/g,"");openModal(`<div class="eyebrow">ACCOUNT ERROR</div><h2>Не удалось войти</h2><p>${msg}</p><p>Сервер пока не подтвердил Telegram ID.</p>`);return;}
  const u=state.me?.user||{}, m=state.me?.membership||{}, done=state.reading.filter(x=>x.status==="completed").length, active=state.reading.filter(x=>x.status==="reading").length, planned=state.reading.filter(x=>x.status==="planned").length;
- openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>${(u.first_name||"Мой профиль").replace(/[<>&"]/g,"")}</h2><p>Telegram ID: ${u.id||"—"}</p><div class="notice">${state.me?.isAdmin?"ADMIN · FULL FREE ACCESS":("Подписка: "+(m.status||"inactive")+" · "+(m.plan||"free"))}</div>
+ openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>${(u.first_name||"Мой профиль").replace(/[<>&"]/g,"")}</h2><p>Telegram ID: ${u.id||"—"}</p><div class="notice">${state.me?.isAdmin?tx("ADMIN · FULL FREE ACCESS","АДМИНИСТРАТОР · ПОЛНЫЙ БЕСПЛАТНЫЙ ДОСТУП","ADMIN · PEŁNY BEZPŁATNY DOSTĘP"):("Подписка: "+(m.status||"inactive")+" · "+(m.plan||"free"))}</div>
  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0;text-align:center"><div class="notice"><b>${done}</b><br>Прочитано</div><div class="notice"><b>${active}</b><br>Читаю</div><div class="notice"><b>${planned}</b><br>В планах</div></div>
- <h3>История чтения</h3>${state.reading.length?state.reading.map(x=>{const b=state.books.find(z=>z.id===x.book_id)||localBooks.find(z=>z.id===x.book_id);return `<p>${b?.title||x.book_id} — ${x.status==="completed"?"Прочитано":x.status==="reading"?"Читаю":"В планах"} · стр. ${x.current_page}${x.total_pages?"/"+x.total_pages:""}</p>`}).join(""):"<p>Пока нет книг в истории. Добавьте книгу в план чтения.</p>"}`);
+ <h3>История чтения</h3>${state.reading.length?state.reading.map(x=>{const b=state.books.find(z=>z.id===x.book_id)||localBooks.find(z=>z.id===x.book_id);return `<p>${b?.title||x.book_id} — ${x.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):x.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach")} · стр. ${x.current_page}${x.total_pages?"/"+x.total_pages:""}</p>`}).join(""):"<p>Пока нет книг в истории. Добавьте книгу в план чтения.</p>"}`);
 };
 document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("nav-active",x===b));if(b.dataset.nav==="library")$("#library").scrollIntoView({behavior:"smooth"});else if(b.dataset.nav==="saved"){state.savedOnly=true;loadBooks();$("#library").scrollIntoView({behavior:"smooth"})}else if(b.dataset.nav==="profile")$("#profileButton").click();else{state.savedOnly=false;loadBooks();window.scrollTo({top:0,behavior:"smooth"})}});
 setLanguage("en");loadAccount().then(loadBooks);
