@@ -169,12 +169,11 @@ async function importCatalogMetadata() {
  // language:eng / language:rus. Records remain unpublished pending rights review.
  for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"},{code:"uk",ol:"ukr"}]) {
   try {
-   const q=encodeURIComponent(`language:${target.ol}`);
    const fields="key,title,author_name,first_publish_year,cover_i";
-   const url=`https://openlibrary.org/search.json?q=${q}&limit=100&fields=${fields}`;
-   const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (metadata discovery)"}});
-   if(!response.ok) throw new Error(`Open Library HTTP ${response.status}`);
-   const data=await response.json();
+   const urls=[`https://openlibrary.org/search.json?language=${target.ol}&limit=100&fields=${fields}`,`https://openlibrary.org/search.json?q=${encodeURIComponent(`language:${target.ol}`)}&limit=100&fields=${fields}`];
+   let data=null,lastError=null;
+   for(const url of urls){try{const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (metadata discovery)"}});if(!response.ok)throw new Error(`Open Library HTTP ${response.status}`);data=await response.json();break;}catch(e){lastError=e;}}
+   if(!data) throw lastError||new Error("Open Library unavailable");
    let n=0;
    for(const b of (data.docs||[])) {
     if(n>=50) break;
@@ -236,6 +235,8 @@ async function importCatalogMetadata() {
    }
   }
  } catch(e) { console.error("Wolne Lektury metadata import failed:",e.message); }
+ const counts=await pool.query("SELECT language, COUNT(*)::int AS total FROM books GROUP BY language ORDER BY language");
+ console.log("Catalog totals by language:",JSON.stringify(counts.rows));
  console.log("Catalog metadata import finished; inserted:",inserted,"(all entries pending rights review)");
 }
 async function ensureUser(u) {
