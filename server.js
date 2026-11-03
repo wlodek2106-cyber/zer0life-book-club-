@@ -635,8 +635,10 @@ app.post("/api/admin/books/:bookId/rights",auth,admin,async(req,res)=>{
  if(b.rights_status==="licensed"&&!b.permission_reference)
   return res.status(400).json({error:"A written permission or licence reference is required"});
  try{
-  const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,permission_reference=$4,rights_checked_at=NOW(),rights_checked_by=$5,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$6 RETURNING id",
-   [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,b.permission_reference?String(b.permission_reference).slice(0,500):null,req.user.id,req.params.bookId]);
+  if(b.content_url && !/^https:\/\/(www\\.)?gutenberg\\.org\/.+\\.txt(\\.utf8)?$/i.test(String(b.content_url)))
+  return res.status(400).json({error:"For now, direct full-text import accepts only HTTPS Project Gutenberg .txt files"});
+ const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,permission_reference=$4,content_url=COALESCE($5,content_url),rights_checked_at=NOW(),rights_checked_by=$6,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$7 RETURNING id",
+   [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,b.permission_reference?String(b.permission_reference).slice(0,500):null,b.content_url||null,req.user.id,req.params.bookId]);
   if(!r.rowCount)return res.status(404).json({error:"Book not found"});
   res.json({ok:true,id:r.rows[0].id,rights_status:b.rights_status});
  }catch(e){res.status(500).json({error:e.message});}
