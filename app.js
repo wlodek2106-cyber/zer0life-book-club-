@@ -2,7 +2,28 @@ const API = (window.ZER0LIFE_API_BASE || "").replace(/\/$/, "");
 const apiUrl = (p) => `${API}${p}`;
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor?.("#090909"); tg.setBackgroundColor?.("#090909"); }
-const state={lang:"en",category:"all",filter:"all",query:"",books:[],favorites:new Set(),savedOnly:false};
+const state={lang:"en",category:"all",filter:"all",query:"",books:[],favorites:new Set(),savedOnly:false,me:null,reading:[]};
+const initData=()=>tg?.initData||"";
+async function api(path,options={}) {
+ const headers={...(options.headers||{}),"X-Telegram-Init-Data":initData()};
+ if(options.body)headers["content-type"]="application/json";
+ const r=await fetch(apiUrl(path),{...options,headers});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(d.error||"Request failed");
+ return d;
+}
+async function loadAccount(){
+ if(!initData())return;
+ try{state.me=await api("/api/me");state.favorites=new Set(state.me.favorites||[]);state.reading=state.me.reading||[];}
+ catch(e){console.warn("Account load:",e.message);}
+}
+async function saveProgress(bookId,currentPage,totalPages,status){
+ const d=await api("/api/reading/"+encodeURIComponent(bookId),{method:"POST",body:JSON.stringify({currentPage,totalPages,status})});
+ const old=state.reading.findIndex(x=>x.book_id===bookId);
+ if(old>=0)state.reading.splice(old,1);
+ state.reading.unshift(d.progress);
+ return d.progress;
+}
 const copy={
  en:{hero:"A curated library for ambitious minds, thoughtful leaders and lifelong learners.",explore:"Explore the library",categories:"Explore categories",library:"Library",search:"Search books, authors, ideas...",vip:"Unlock the entire library",home:"Home",saved:"Saved",profile:"Profile",all:"All books",empty:"No books found. Try another search.",buy:"Buy book",vipCta:"Become a member"},
  ru:{hero:"Библиотека для амбициозных людей, осознанных лидеров и тех, кто учится всю жизнь.",explore:"Открыть библиотеку",categories:"Категории",library:"Библиотека",search:"Поиск книг, авторов и идей...",vip:"Откройте всю библиотеку",home:"Главная",saved:"Избранное",profile:"Профиль",all:"Все книги",empty:"Книги не найдены. Измените поиск.",buy:"Купить книгу",vipCta:"Стать участником"},
@@ -40,7 +61,22 @@ function renderBooks(){
 }
 function openModal(html){$("#modalContent").innerHTML=html;$("#modalBackdrop").classList.add("open")}
 function closeModal(){$("#modalBackdrop").classList.remove("open")}
-function openBook(id){const b=state.books.find(x=>x.id===id)||localBooks.find(x=>x.id===id);if(!b)return;openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description}</p><p>Language: ${b.lang.toUpperCase()} · ${b.year}</p><button class="gold-button" id="buyBook">${tr().buy} · ${b.priceStars} Stars ↗</button><div class="notice">Demo mode: checkout is not active until the Telegram bot and Stars payments are configured. Only licensed or public-domain full texts should be distributed.</div><button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b;margin-top:8px">♡ ${state.favorites.has(b.id)?"Saved":"Add to saved"}</button>`);$("#buyBook").onclick=()=>startCheckout("/api/pay/book",{bookId:b.id});$("#saveBook").onclick=()=>{state.favorites.has(b.id)?state.favorites.delete(b.id):state.favorites.add(b.id);openBook(id)}}
+function openBook(id){
+ const b=state.books.find(x=>x.id===id)||localBooks.find(x=>x.id===id);if(!b)return;
+ const p=state.reading.find(x=>x.book_id===id);
+ openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover||""}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
+ <div class="notice">Книга пока представлена карточкой. Полный текст появится только после подтверждения прав на распространение.</div>
+ <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?("Статус: "+(p.status==="completed"?"Прочитано":p.status==="reading"?"Читаю":"В планах")+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
+ <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Текущая страница</label><input id="progressPage" type="number" min="0" value="${p?.current_page||0}" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
+ <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Всего страниц (если известно)</label><input id="progressTotal" type="number" min="1" value="${p?.total_pages||""}" placeholder="Например, 240" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
+ <button class="gold-button" id="saveProgress">Сохранить прогресс</button><button class="gold-button" id="completeBook" style="background:#29251e;color:#d6bd8b">Отметить прочитанной</button>
+ <button class="gold-button" id="buyBook" style="background:#29251e;color:#d6bd8b">Купить книгу · ${b.priceStars||0} Stars</button>
+ <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?"В избранном":"В избранное"}</button>`);
+ $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
+ $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
+ $("#buyBook").onclick=()=>startCheckout("/api/pay/book",{bookId:b.id});
+ $("#saveBook").onclick=async()=>{try{if(state.favorites.has(b.id)){await api("/api/favorites/"+encodeURIComponent(b.id),{method:"DELETE"});state.favorites.delete(b.id)}else{await api("/api/favorites/"+encodeURIComponent(b.id),{method:"POST"});state.favorites.add(b.id)}openBook(id)}catch(e){alert("Откройте приложение через Telegram, чтобы сохранять избранное.")}};
+}
 async function startCheckout(path, body={}) {
   const initData = tg?.initData || "";
   if (!initData) {
@@ -70,6 +106,13 @@ $("#filterTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.filt
 $("#vipButton").onclick=$("#vipButton2").onclick=openVip;
 $("#exploreButton").onclick=()=>$("#library").scrollIntoView({behavior:"smooth"});
 $("#modalClose").onclick=closeModal;$("#modalBackdrop").onclick=e=>{if(e.target.id==="modalBackdrop")closeModal()};
-$("#profileButton").onclick=()=>openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>Welcome to Zer0Life</h2><p>Telegram profile and membership status will appear here after secure Telegram authentication is connected.</p><div class="notice">Preview account · Free membership</div>`);
+$("#profileButton").onclick=async()=>{
+ if(!initData()){openModal(`<div class="eyebrow">TELEGRAM ACCOUNT</div><h2>Откройте через Telegram</h2><p>Личный кабинет доступен после запуска Mini App из бота.</p>`);return;}
+ await loadAccount();
+ const u=state.me?.user||{}, m=state.me?.membership||{}, done=state.reading.filter(x=>x.status==="completed").length, active=state.reading.filter(x=>x.status==="reading").length, planned=state.reading.filter(x=>x.status==="planned").length;
+ openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>${(u.first_name||"Мой профиль").replace(/[<>&"]/g,"")}</h2><p>Telegram ID: ${u.id||"—"}</p><div class="notice">${state.me?.isAdmin?"ADMIN · FULL FREE ACCESS":("Подписка: "+(m.status||"inactive")+" · "+(m.plan||"free"))}</div>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0;text-align:center"><div class="notice"><b>${done}</b><br>Прочитано</div><div class="notice"><b>${active}</b><br>Читаю</div><div class="notice"><b>${planned}</b><br>В планах</div></div>
+ <h3>История чтения</h3>${state.reading.length?state.reading.map(x=>{const b=state.books.find(z=>z.id===x.book_id)||localBooks.find(z=>z.id===x.book_id);return `<p>${b?.title||x.book_id} — ${x.status==="completed"?"Прочитано":x.status==="reading"?"Читаю":"В планах"} · стр. ${x.current_page}${x.total_pages?"/"+x.total_pages:""}</p>`}).join(""):"<p>Пока нет книг в истории. Добавьте книгу в план чтения.</p>"}`);
+};
 document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("nav-active",x===b));if(b.dataset.nav==="library")$("#library").scrollIntoView({behavior:"smooth"});else if(b.dataset.nav==="saved"){state.savedOnly=true;loadBooks();$("#library").scrollIntoView({behavior:"smooth"})}else if(b.dataset.nav==="profile")$("#profileButton").click();else{state.savedOnly=false;loadBooks();window.scrollTo({top:0,behavior:"smooth"})}});
-setLanguage("en");loadBooks();
+setLanguage("en");loadAccount().then(loadBooks);
