@@ -86,6 +86,12 @@ async function initDatabase() {
    is_published BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
   );
   ALTER TABLE books ADD COLUMN IF NOT EXISTS year INTEGER;\n  ALTER TABLE books ADD COLUMN IF NOT EXISTS source_url TEXT;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS source_license TEXT;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS rights_evidence_url TEXT;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS rights_checked_at TIMESTAMPTZ;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS rights_checked_by BIGINT;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS full_text_source_url TEXT;
+  CREATE INDEX IF NOT EXISTS books_rights_review_idx ON books(rights_status,language);
   ALTER TABLE books ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
   CREATE TABLE IF NOT EXISTS memberships (
    telegram_id BIGINT PRIMARY KEY REFERENCES users(telegram_id),
@@ -441,6 +447,28 @@ app.post("/api/admin/books/:bookId/pages",auth,admin,async(req,res)=>{
  }catch(e){res.status(500).json({error:e.message});}
 });
 
+
+app.get("/api/admin/rights-review",auth,admin,async(_req,res)=>{
+ try{
+  const r=await pool.query("SELECT id,title,author,language,year,source_url,content_url,source_license,rights_status,rights_evidence_url,rights_checked_at FROM books WHERE rights_status='pending' OR rights_evidence_url IS NULL ORDER BY created_at DESC LIMIT 250");
+  res.json({books:r.rows});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+app.post("/api/admin/books/:bookId/rights",auth,admin,async(req,res)=>{
+ const b=req.body||{};
+ const allowed=["pending","licensed","public_domain"];
+ if(!allowed.includes(b.rights_status)||!b.source_license||!b.rights_evidence_url)
+  return res.status(400).json({error:"rights_status, source_license and rights_evidence_url are required"});
+ if(!/^https:\/\//i.test(String(b.rights_evidence_url))) return res.status(400).json({error:"A public HTTPS evidence URL is required"});
+ if(b.rights_status==="licensed"&&!b.permission_reference)
+  return res.status(400).json({error:"A written permission or licence reference is required"});
+ try{
+  const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,rights_checked_at=NOW(),rights_checked_by=$4,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$5 RETURNING id",
+   [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,req.user.id,req.params.bookId]);
+  if(!r.rowCount)return res.status(404).json({error:"Book not found"});
+  res.json({ok:true,id:r.rows[0].id,rights_status:b.rights_status});
+ }catch(e){res.status(500).json({error:e.message});}
+});
 app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
  try{
   const [users,subs,books,sales]=await Promise.all([
