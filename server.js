@@ -179,6 +179,23 @@ async function seedInitialEnglishClassics(){
  }
  console.log("Initial English classics queued for rights review:",added);
 }
+async function seedSlavicClassicsForRightsReview(){
+ const works=[
+  {id:'ru-war-and-peace',title:'Война и мир',author:'Лев Толстой',death:1910,year:1869,lang:'ru',category:'personal'},
+  {id:'ru-crime-and-punishment',title:'Преступление и наказание',author:'Фёдор Достоевский',death:1881,year:1866,lang:'ru',category:'psychology'},
+  {id:'pl-lalka',title:'Lalka',author:'Bolesław Prus',death:1912,year:1890,lang:'pl',category:'personal'},
+  {id:'pl-quo-vadis',title:'Quo Vadis',author:'Henryk Sienkiewicz',death:1916,year:1896,lang:'pl',category:'personal'},
+  {id:'uk-tini-zabutykh-predkiv',title:'Тіні забутих предків',author:'Михайло Коцюбинський',death:1913,year:1911,lang:'uk',category:'personal'},
+  {id:'uk-zakhar-berkut',title:'Захар Беркут',author:'Іван Франко',death:1916,year:1883,lang:'uk',category:'personal'}
+ ];
+ for(const w of works){
+  if(2026-w.death<71)continue;
+  await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,'Original-language edition candidate. Full text and exact edition rights must be verified before distribution.',$4,$5,$6,0,FALSE,NULL,NULL,'pending',FALSE,NULL,'Author death term appears expired; edition, translation, scan and commercial redistribution rights remain unverified',NULL)
+   ON CONFLICT(id) DO NOTHING`,[w.id,w.title,w.author,w.category,w.lang,w.year]);
+ }
+ console.log('Slavic classics queued for edition-level rights review');
+}
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -607,7 +624,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await importCatalogMetadata(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
