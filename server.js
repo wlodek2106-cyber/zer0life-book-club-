@@ -128,7 +128,7 @@ app.post("/api/pay/vip",auth,async(req,res)=>{
 });
 
 // Telegram webhook: validate Telegram's secret-token header.
-app.post(`/telegram/webhook/${WEBHOOK_SECRET}`, async (req,res) => {
+app.post("/telegram/webhook", async (req,res) => {
  if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) return res.sendStatus(401);
  const u = req.body || {};
  try {
@@ -181,7 +181,7 @@ const server = app.listen(PORT, async () => {
  console.log(`Zer0Life Book Club API listening on ${PORT}`);
  if (BOT_TOKEN) {
   try {
-   const webhookUrl = `${PUBLIC_API_URL}/telegram/webhook/${WEBHOOK_SECRET}`;
+   const webhookUrl = `${PUBLIC_API_URL}/telegram/webhook`;
    const result = await botApi("setWebhook", { url: webhookUrl, secret_token: WEBHOOK_SECRET, allowed_updates: ["message", "pre_checkout_query"] });
    console.log("Telegram webhook registered:", result === true ? "yes" : "no");
   } catch (e) { console.error("Telegram webhook registration failed:", e.message); }
