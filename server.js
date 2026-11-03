@@ -501,6 +501,13 @@ app.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
  try{const result=await importApprovedOnlineBooks(req.body?.limit);res.json({ok:true,...result});}
  catch(e){res.status(500).json({error:e.message});}
 });
+app.post("/api/admin/discover-catalog",auth,admin,async(req,res)=>{
+ try{
+  await importCatalogMetadata();
+  const counts=await pool.query("SELECT language,COUNT(*)::int AS total,COUNT(*) FILTER (WHERE rights_status='pending')::int AS pending FROM books GROUP BY language ORDER BY language");
+  res.json({ok:true,counts:counts.rows});
+ }catch(e){res.status(500).json({error:e.message});}
+});
 app.get("/api/admin/rights-review",auth,admin,async(_req,res)=>{
  try{
   const r=await pool.query("SELECT id,title,author,language,year,source_url,content_url,source_license,rights_status,rights_evidence_url,rights_checked_at FROM books WHERE rights_status='pending' OR rights_evidence_url IS NULL ORDER BY created_at DESC LIMIT 250");
