@@ -47,7 +47,7 @@ const tr=()=>copy[state.lang];
 const tx=(en,ru,pl,uk)=>state.lang==="ru"?ru:state.lang==="pl"?pl:state.lang==="uk"?uk:en;
 async function loadBooks(){
  try{const r=await fetch(apiUrl(`/api/catalog?category=${encodeURIComponent(state.category)}&q=${encodeURIComponent(state.query)}&lang=${state.filter}`));if(!r.ok)throw 0;const d=await r.json();state.books=d.books;}
- catch{state.books=localBooks.filter(b=>(state.category==="all"||b.category===state.category)&&(state.filter==="all"||b.lang===state.filter)&&(!state.query||`${b.title} ${b.author}`.toLowerCase().includes(state.query.toLowerCase())));}
+ catch(e){state.books=[];console.warn("Catalog unavailable:",e.message);}
  renderBooks();renderCategories();
 }
 function renderCategories(){
@@ -64,7 +64,7 @@ function renderBooks(){
 function openModal(html){$("#modalContent").innerHTML=html;$("#modalBackdrop").classList.add("open")}
 function closeModal(){$("#modalBackdrop").classList.remove("open")}
 function openBook(id){
- const b=state.books.find(x=>x.id===id)||localBooks.find(x=>x.id===id);if(!b)return;
+ const b=state.books.find(x=>x.id===id);if(!b)return;
  const p=state.reading.find(x=>x.book_id===id);
  openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover||""}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
  <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
@@ -81,7 +81,7 @@ function openBook(id){
    const esc=s=>String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
    const pages=data.pages||[];
    pagesBox.innerHTML=pages.length?("<h3>Чтение</h3>"+pages.map(x=>'<section style="padding:14px 0;border-bottom:1px solid #39352e"><div class="eyebrow">СТРАНИЦА '+x.page_number+'</div><p style="white-space:pre-wrap;line-height:1.7">'+esc(x.page_text)+'</p></section>').join("")+(data.previewOnly?'<p class="notice">Это бесплатный фрагмент. Для полного доступа оформите подписку.</p>':"")):'<p class="notice">Текст пока не загружен. Администратор добавит страницы после проверки прав на книгу.</p>';
-  }).catch(()=>{pagesBox.innerHTML='<p class="notice">Не удалось загрузить страницы. Откройте приложение через Telegram.</p>';});
+  }).catch(e=>{pagesBox.innerHTML='<p class="notice">Книга пока недоступна для чтения: '+String(e.message||"ошибка загрузки").replace(/[<>&"]/g,"")+'. В библиотеке появятся только книги с загруженным текстом и подтверждёнными правами.</p>';});
  } else { pagesBox.innerHTML='<p class="notice">Для чтения войдите через Telegram.</p>'; }
  $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
@@ -130,7 +130,7 @@ $("#profileButton").onclick=async()=>{
  const u=state.me?.user||{}, m=state.me?.membership||{}, done=state.reading.filter(x=>x.status==="completed").length, active=state.reading.filter(x=>x.status==="reading").length, planned=state.reading.filter(x=>x.status==="planned").length;
  openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>${(u.first_name||"Мой профиль").replace(/[<>&"]/g,"")}</h2><p>Telegram ID: ${u.id||"—"}</p><div class="notice">${state.me?.isAdmin?tx("ADMIN · FULL FREE ACCESS","АДМИНИСТРАТОР · ПОЛНЫЙ БЕСПЛАТНЫЙ ДОСТУП","ADMIN · PEŁNY BEZPŁATNY DOSTĘP"):("Подписка: "+(m.status||"inactive")+" · "+(m.plan||"free"))}</div>
  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0;text-align:center"><div class="notice"><b>${done}</b><br>Прочитано</div><div class="notice"><b>${active}</b><br>Читаю</div><div class="notice"><b>${planned}</b><br>В планах</div></div>
- <h3>История чтения</h3>${state.reading.length?state.reading.map(x=>{const b=state.books.find(z=>z.id===x.book_id)||localBooks.find(z=>z.id===x.book_id);return `<p>${b?.title||x.book_id} — ${x.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):x.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach")} · стр. ${x.current_page}${x.total_pages?"/"+x.total_pages:""}</p>`}).join(""):"<p>Пока нет книг в истории. Добавьте книгу в план чтения.</p>"}`);
+ <h3>История чтения</h3>${state.reading.length?state.reading.map(x=>{const b=state.books.find(z=>z.id===x.book_id);return `<p>${b?.title||x.book_id} — ${x.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):x.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach")} · стр. ${x.current_page}${x.total_pages?"/"+x.total_pages:""}</p>`}).join(""):"<p>Пока нет книг в истории. Добавьте книгу в план чтения.</p>"}`);
 };
 document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("nav-active",x===b));if(b.dataset.nav==="library")$("#library").scrollIntoView({behavior:"smooth"});else if(b.dataset.nav==="saved"){state.savedOnly=true;loadBooks();$("#library").scrollIntoView({behavior:"smooth"})}else if(b.dataset.nav==="profile")$("#profileButton").click();else{state.savedOnly=false;loadBooks();window.scrollTo({top:0,behavior:"smooth"})}});
 setLanguage("en");loadAccount().then(loadBooks);
