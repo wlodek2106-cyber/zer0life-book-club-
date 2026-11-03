@@ -27,6 +27,7 @@ async function saveProgress(bookId,currentPage,totalPages,status){
 const copy={
  en:{hero:"A curated library for ambitious minds, thoughtful leaders and lifelong learners.",explore:"Explore the library",categories:"Explore categories",library:"Library",search:"Search books, authors, ideas...",vip:"Unlock the entire library",home:"Home",saved:"Saved",profile:"Profile",all:"All books",empty:"No books found. Try another search.",buy:"Buy book",vipCta:"Become a member"},
  ru:{hero:"Библиотека для амбициозных людей, осознанных лидеров и тех, кто учится всю жизнь.",explore:"Открыть библиотеку",categories:"Категории",library:"Библиотека",search:"Поиск книг, авторов и идей...",vip:"Откройте всю библиотеку",home:"Главная",saved:"Избранное",profile:"Профиль",all:"Все книги",empty:"Книги не найдены. Измените поиск.",buy:"Купить книгу",vipCta:"Стать участником"},
+ uk:{hero:"Бібліотека для амбітних людей, лідерів і тих, хто навчається протягом усього життя.",explore:"Відкрити бібліотеку",categories:"Категорії",library:"Бібліотека",search:"Пошук книг, авторів та ідей...",vip:"Відкрийте всю бібліотеку",home:"Головна",saved:"Збережене",profile:"Профіль",all:"Усі книги",empty:"Книг не знайдено. Спробуйте інший пошук.",buy:"Купити книгу",vipCta:"Приєднатися до клубу"},
  pl:{hero:"Wyselekcjonowana biblioteka dla ambitnych umysłów, liderów i osób uczących się przez całe życie.",explore:"Otwórz bibliotekę",categories:"Kategorie",library:"Biblioteka",search:"Szukaj książek, autorów, idei...",vip:"Odblokuj całą bibliotekę",home:"Start",saved:"Zapisane",profile:"Profil",all:"Wszystkie",empty:"Nie znaleziono książek.",buy:"Kup książkę",vipCta:"Dołącz do klubu"}
 };
 const catNames={business:["Business","Бизнес","Biznes"],psychology:["Psychology","Психология","Psychologia"],psychosomatics:["Psychosomatics","Психосоматика","Psychosomatyka"],mindfulness:["Mindfulness","Осознанность","Uważność"],relationships:["Love & relationships","Любовь и отношения","Miłość i relacje"],leadership:["CEO & leadership","CEO и управление","CEO i zarządzanie"],money:["Money & investing","Деньги и инвестиции","Finanse i inwestycje"],personal:["Personal growth","Саморазвитие","Rozwój osobisty"]};
@@ -43,14 +44,14 @@ const localBooks=[
 ];
 const $=s=>document.querySelector(s);
 const tr=()=>copy[state.lang];
-const tx=(en,ru,pl)=>state.lang==="ru"?ru:state.lang==="pl"?pl:en;
+const tx=(en,ru,pl,uk)=>state.lang==="ru"?ru:state.lang==="pl"?pl:state.lang==="uk"?uk:en;
 async function loadBooks(){
  try{const r=await fetch(apiUrl(`/api/catalog?category=${encodeURIComponent(state.category)}&q=${encodeURIComponent(state.query)}&lang=${state.filter}`));if(!r.ok)throw 0;const d=await r.json();state.books=d.books;}
  catch{state.books=localBooks.filter(b=>(state.category==="all"||b.category===state.category)&&(state.filter==="all"||b.lang===state.filter)&&(!state.query||`${b.title} ${b.author}`.toLowerCase().includes(state.query.toLowerCase())));}
  renderBooks();renderCategories();
 }
 function renderCategories(){
- $("#categoryGrid").innerHTML=categories.map(([id,icon])=>{let label=id==="all"?tx("All books","Все книги","Wszystkie"):catNames[id][["en","ru","pl"].indexOf(state.lang)];return `<button class="category ${state.category===id?"active":""}" data-cat="${id}"><span class="cat-icon">${icon}</span><b>${label}</b></button>`}).join("");
+ $("#categoryGrid").innerHTML=categories.map(([id,icon])=>{let label=id==="all"?tx("All books","Все книги","Wszystkie","Усі книги"):catNames[id][["en","ru","pl","uk"].indexOf(state.lang)]||catNames[id][0];return `<button class="category ${state.category===id?"active":""}" data-cat="${id}"><span class="cat-icon">${icon}</span><b>${label}</b></button>`}).join("");
  document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{state.category=b.dataset.cat;state.savedOnly=false;loadBooks()});
 }
 function renderBooks(){
@@ -115,7 +116,7 @@ function openVip(){openModal(`<div class="eyebrow gold-text">ZER0LIFE BOOK CLUB<
  $("#joinPremium").onclick=()=>startCheckout("/api/pay/premium");
 }
 function setLanguage(lang){state.lang=lang;state.filter=lang;$("#langButton").textContent=lang.toUpperCase()+"⌄";$("#heroSub").textContent=tr().hero;$("#exploreButton").innerHTML=tr().explore+" <span>↗</span>";$("#searchInput").placeholder=tr().search;$("#filterTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.filter===lang));renderCategories();loadBooks()}
-$("#langButton").onclick=()=>{const next={en:"ru",ru:"pl",pl:"en"}[state.lang];setLanguage(next)};
+$("#langButton").onclick=()=>{const next={en:"ru",ru:"pl",pl:"uk",uk:"en"}[state.lang];setLanguage(next)};
 $("#searchInput").addEventListener("input",e=>{state.query=e.target.value;loadBooks()});
 $("#sortSelect").onchange=renderBooks;
 $("#filterTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{state.filter=b.dataset.filter;$("#filterTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));loadBooks()});
