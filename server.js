@@ -282,14 +282,15 @@ app.post("/telegram/webhook",async(req,res)=>{
     await client.query("BEGIN");
     const found=await client.query("SELECT * FROM pending_payments WHERE payload=$1 FOR UPDATE",[s.invoice_payload]);
     const p=found.rows[0];
-    if(p&&p.status==="pending"&&String(p.telegram_id)===String(msg.from.id)&&p.amount===s.total_amount&&p.currency===s.currency&&s.currency==="XTR"){
-     await client.query("INSERT INTO purchases(telegram_id,book_id,telegram_payment_charge_id,total_amount,currency,plan) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(telegram_payment_charge_id) DO NOTHING",[p.telegram_id,p.book_id,s.telegram_payment_charge_id,s.total_amount,s.currency,p.kind==="book"?null:p.kind]);
-     if(p.kind==="standard"||p.kind==="premium"){
+    const isRenewal=!!s.is_recurring;
+    if(p&&(p.status==="pending"||(p.status==="paid"&&isRenewal))&&String(p.telegram_id)===String(msg.from.id)&&p.amount===s.total_amount&&p.currency===s.currency&&s.currency==="XTR"&&(p.kind==="book"?!isRenewal:true)){
+     const saved=await client.query("INSERT INTO purchases(telegram_id,book_id,telegram_payment_charge_id,total_amount,currency,plan) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(telegram_payment_charge_id) DO NOTHING RETURNING id",[p.telegram_id,p.book_id,s.telegram_payment_charge_id,s.total_amount,s.currency,p.kind==="book"?null:p.kind]);
+     if(saved.rowCount>0&&(p.kind==="standard"||p.kind==="premium")){
       const expiry=s.subscription_expiration_date?new Date(s.subscription_expiration_date*1000):new Date(Date.now()+VIP_PERIOD*1000);
       await client.query(`INSERT INTO memberships(telegram_id,status,plan,expires_at,updated_at) VALUES($1,'active',$2,$3,NOW())
-       ON CONFLICT(telegram_id) DO UPDATE SET status='active',plan=EXCLUDED.plan,expires_at=GREATEST(COALESCE(memberships.expires_at,NOW()),EXCLUDED.expires_at),updated_at=NOW()`,[p.telegram_id,p.kind,expiry]);
+       ON CONFLICT(telegram_id) DO UPDATE SET status='active',plan=EXCLUDED.plan,expires_at=EXCLUDED.expires_at,updated_at=NOW()`,[p.telegram_id,p.kind,expiry]);
      }
-     await client.query("UPDATE pending_payments SET status='paid',paid_at=NOW() WHERE payload=$1",[p.payload]);
+     if(p.status==="pending") await client.query("UPDATE pending_payments SET status='paid',paid_at=NOW() WHERE payload=$1",[p.payload]);
     }
     await client.query("COMMIT");
    }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
