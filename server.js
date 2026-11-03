@@ -22,6 +22,28 @@ const pool = process.env.DATABASE_URL ? new Pool({
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined
 }) : null;
 
+// Telegram Mini Apps run the frontend on a different origin from this API.
+// Allow the configured app origin and handle browser preflight requests explicitly.
+const allowedOrigins = new Set([
+  PUBLIC_APP_URL,
+  "https://zer0life-book-club.onrender.com",
+  "https://web.telegram.org",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
+].filter(Boolean).map(value => { try { return new URL(value).origin; } catch { return value; } }));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data");
+    res.setHeader("Access-Control-Max-Age", "86400");
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
+
 const sampleBooks = [
  {id:"b1",category:"business",title:"The Lean Startup",author:"Eric Ries",year:2011,lang:"en",priceStars:350,vip:true,description:"A practical framework for testing ideas and building products customers want.",cover:"https://covers.openlibrary.org/b/isbn/9780307887894-L.jpg"},
  {id:"b2",category:"business",title:"От хорошего к великому",author:"Джим Коллинз",year:2001,lang:"ru",priceStars:300,vip:true,description:"Как компании переходят от хороших результатов к выдающимся.",cover:"https://covers.openlibrary.org/b/isbn/9780712676090-L.jpg"},
