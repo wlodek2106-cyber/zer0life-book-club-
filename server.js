@@ -448,6 +448,59 @@ app.post("/api/admin/books/:bookId/pages",auth,admin,async(req,res)=>{
 });
 
 
+
+async function importApprovedOnlineBooks(limit=20) {
+ const candidates=await pool.query(`SELECT id,title,content_url,source_url,rights_status,rights_evidence_url,source_license
+  FROM books WHERE rights_status IN ('licensed','public_domain') AND rights_evidence_url IS NOT NULL
+  AND content_url IS NOT NULL AND (SELECT COUNT(*) FROM book_pages p WHERE p.book_id=books.id)=0
+  ORDER BY created_at ASC LIMIT $1`,[Math.max(1,Math.min(50,Number(limit)||20))]);
+ const results=[];
+ for(const book of candidates.rows){
+  try{
+   const u=new URL(book.content_url);
+   const host=u.hostname.toLowerCase();
+   if(!(host==="gutenberg.org"||host.endsWith(".gutenberg.org")||host==="wolnelektury.pl"||host.endsWith(".wolnelektury.pl")||host.endsWith(".wikisource.org")))
+    throw new Error("Source host is not on the approved import allowlist");
+   if(u.protocol!=="https:") throw new Error("HTTPS source required");
+   const response=await fetch(u.toString(),{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (licensed full-text ingestion)"}});
+   if(!response.ok) throw new Error("Source returned HTTP "+response.status);
+   const type=(response.headers.get("content-type")||"").toLowerCase();
+   if(type.includes("text/html")) throw new Error("Source returned HTML, not a direct full-text file");
+   let body=await response.text();
+   if(body.length<12000) throw new Error("Downloaded content is too short; refusing to publish a partial text");
+   body=body.replace(/^\\uFEFF/,"").replace(/\\r/g,"").trim();
+   const start=body.search(/\\*\\*\\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+   if(start>=0){const nl=body.indexOf("\\n",start);if(nl>=0)body=body.slice(nl+1);}
+   const end=body.search(/\\*\\*\\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+   if(end>=0)body=body.slice(0,end);
+   body=body.trim();
+   if(body.length<10000)throw new Error("Text is too short after removing source wrapper");
+   const chunks=[];let rest=body;
+   while(rest.length){
+    let cut=Math.min(2800,rest.length);
+    if(cut<rest.length){const boundary=rest.lastIndexOf(" ",cut);if(boundary>cut*.65)cut=boundary;}
+    chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();
+   }
+   if(chunks.length<5)throw new Error("Insufficient page count; import rejected");
+   const client=await pool.connect();
+   try{
+    await client.query("BEGIN");
+    const current=await client.query("SELECT rights_status,rights_evidence_url FROM books WHERE id=$1 FOR UPDATE",[book.id]);
+    if(!current.rows[0]||!["licensed","public_domain"].includes(current.rows[0].rights_status)||!current.rows[0].rights_evidence_url)throw new Error("Rights approval changed during import");
+    await client.query("DELETE FROM book_pages WHERE book_id=$1",[book.id]);
+    for(let i=0;i<chunks.length;i++)await client.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[book.id,i+1,chunks[i]]);
+    await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=content_url WHERE id=$1",[book.id]);
+    await client.query("COMMIT");
+   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+   results.push({id:book.id,title:book.title,pages:chunks.length,status:"published"});
+  }catch(e){results.push({id:book.id,title:book.title,status:"skipped",reason:e.message});}
+ }
+ return {processed:results.length,results};
+}
+app.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
+ try{const result=await importApprovedOnlineBooks(req.body?.limit);res.json({ok:true,...result});}
+ catch(e){res.status(500).json({error:e.message});}
+});
 app.get("/api/admin/rights-review",auth,admin,async(_req,res)=>{
  try{
   const r=await pool.query("SELECT id,title,author,language,year,source_url,content_url,source_license,rights_status,rights_evidence_url,rights_checked_at FROM books WHERE rights_status='pending' OR rights_evidence_url IS NULL ORDER BY created_at DESC LIMIT 250");
