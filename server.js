@@ -157,7 +157,7 @@ async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
  let inserted = 0;
- for (const target of targets) {
+ if (process.env.GUTENDEX_ENABLED === "true") for (const target of targets) {
   try {
    let url = `https://gutendex.com/books?languages=${target.code}&copyright=false&mime_type=text%2F&sort=popular`;
    let collected = [];
@@ -186,10 +186,21 @@ async function importCatalogMetadata() {
  for (const target of [{code:"en",ol:"eng"},{code:"ru",ol:"rus"},{code:"pl",ol:"pol"},{code:"uk",ol:"ukr"}]) {
   try {
    const fields="key,title,author_name,first_publish_year,cover_i,language,has_fulltext,edition_count";
-   const url="https://openlibrary.org/search.json?q="+encodeURIComponent("language:"+target.ol)+"&limit=25&fields="+encodeURIComponent(fields);
-   const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (book discovery)"}});
-   if(!response.ok) throw new Error("Open Library HTTP "+response.status);
-   const data=await response.json();
+   const queries=["language:"+target.ol];
+   if(target.code==="en") queries.push("language:eng");
+   let data=null,lastError=null;
+   for(const query of queries){
+    const url="https://openlibrary.org/search.json?q="+encodeURIComponent(query)+"&lang="+target.code+"&limit=25&fields="+encodeURIComponent(fields);
+    for(let attempt=1;attempt<=3;attempt++){
+     try{
+      const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (contact: support@zer0lifelabs.com)"}});
+      if(!response.ok) throw new Error("Open Library HTTP "+response.status);
+      data=await response.json();break;
+     }catch(e){lastError=e;if(attempt<3)await new Promise(resolve=>setTimeout(resolve,attempt*1200));}
+    }
+    if(data)break;
+   }
+   if(!data)throw lastError||new Error("Open Library search unavailable");
    let n=0;
    for(const item of (data.docs||[])){
     const title=String(item.title||"").trim();
