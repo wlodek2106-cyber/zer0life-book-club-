@@ -137,6 +137,57 @@ async function initDatabase() {
  console.log("Database schema ready");
 }
 
+
+async function seedOriginalStarterBooks() {
+ const books = [
+  {id:"zl-original-en-001",lang:"en",title:"The Power of Small Steps",author:"Zer0Life Editorial Team",description:"An original short guide to building meaningful habits through small, repeatable actions.",pages:[
+   "A meaningful life is rarely built in one dramatic moment. More often, it grows from small decisions repeated when nobody is watching. One page read, one honest conversation, one walk, one careful choice: each is modest on its own, yet together they shape a direction.",
+   "Start by choosing a change so small that it feels almost too easy. Instead of promising to read for an hour, read two pages after breakfast. Instead of planning a complete transformation, prepare one useful action for tomorrow. Consistency begins when the first step is realistic.",
+   "Your environment quietly influences your behavior. Put the book where you can see it. Keep distractions away during your chosen moment. Make the helpful action simple to begin and the unhelpful action slightly harder to reach. Design beats willpower more often than we expect.",
+   "Measure actions before outcomes. A new skill, stronger health or growing project may take months to show visible results. A daily mark on a calendar gives you evidence that you are keeping a promise. The goal is not a perfect streak; it is returning after interruptions.",
+   "When you miss a day, avoid turning one missed action into a story about failure. Notice what got in the way, adjust the plan and begin again. A flexible system survives real life. Progress belongs to people who restart, not only to people who never pause.",
+   "Choose one small action for the next seven days. Decide when and where it will happen, make the first step obvious, and record each attempt. At the end of the week, keep what worked and simplify what did not. A better future can begin with a very ordinary day."
+  ]},
+  {id:"zl-original-ru-001",lang:"ru",title:"Сила маленьких шагов",author:"Редакция Zer0Life",description:"Оригинальная небольшая книга о привычках, последовательности и личном развитии.",pages:[
+   "Большие перемены редко происходят за один день. Чаще они складываются из небольших решений, которые мы повторяем снова и снова. Несколько прочитанных страниц, короткая прогулка, честный разговор или один выполненный пункт плана постепенно задают направление всей жизни.",
+   "Начните с действия, которое настолько простое, что его трудно отложить. Не обещайте себе читать час — начните с двух страниц после завтрака. Не пытайтесь полностью изменить распорядок за вечер. Выберите один полезный шаг на завтра и заранее подготовьте всё необходимое.",
+   "Окружение влияет на поведение сильнее, чем кажется. Положите книгу на видное место, уберите телефон на время чтения, подготовьте рабочее пространство. Сделайте полезное действие доступным, а отвлекающее — менее удобным. Хорошая система помогает даже в дни, когда мотивации мало.",
+   "Отмечайте прежде всего действия, а не только результаты. Новые навыки, здоровье или развитие проекта могут требовать месяцев. Простая отметка в календаре напоминает, что вы выполняете обещание самому себе. Важна не идеальная серия, а способность возвращаться к делу.",
+   "Если пропустили день, не превращайте паузу в доказательство собственной несостоятельности. Посмотрите, что помешало, измените план и начните снова. Гибкая привычка выдерживает настоящую жизнь. Устойчивый прогресс строят не те, кто никогда не останавливается, а те, кто умеет продолжать.",
+   "Выберите одно небольшое действие на ближайшие семь дней. Определите точное время и место, подготовьте первый шаг и отмечайте каждую попытку. Через неделю оставьте то, что сработало, и упростите то, что оказалось сложным. Новая глава может начаться с самого обычного дня."
+  ]},
+  {id:"zl-original-pl-001",lang:"pl",title:"Siła małych kroków",author:"Zespół redakcyjny Zer0Life",description:"Oryginalny krótki poradnik o nawykach, konsekwencji i rozwoju osobistym.",pages:[
+   "Wielkie zmiany rzadko dokonują się w jeden dzień. Częściej powstają z małych decyzji, które regularnie powtarzamy. Kilka przeczytanych stron, krótki spacer, szczera rozmowa lub wykonany punkt planu stopniowo nadają życiu kierunek.",
+   "Zacznij od działania tak małego, że trudno będzie je odłożyć. Zamiast obiecywać sobie godzinę czytania, przeczytaj dwie strony po śniadaniu. Nie próbuj zmieniać całego planu dnia jednego wieczoru. Wybierz jeden pożyteczny krok na jutro i przygotuj go wcześniej.",
+   "Otoczenie wpływa na zachowanie bardziej, niż nam się wydaje. Połóż książkę w widocznym miejscu, odłóż telefon na czas czytania i przygotuj przestrzeń do pracy. Ułatwiaj dobre działania, a rozpraszacze trzymaj dalej. Dobry system pomaga także wtedy, gdy brakuje motywacji.",
+   "Mierz przede wszystkim wykonane działania, nie tylko końcowe wyniki. Nauka, zdrowie czy rozwój projektu mogą wymagać wielu miesięcy. Prosty znak w kalendarzu przypomina, że dotrzymujesz obietnicy złożonej samemu sobie. Liczy się powrót do działania, nie idealna passa.",
+   "Jeśli opuścisz jeden dzień, nie traktuj tego jako dowodu porażki. Zauważ, co przeszkodziło, popraw plan i zacznij ponownie. Elastyczny system wytrzymuje codzienne życie. Postęp budują osoby, które potrafią wrócić do działania po przerwie.",
+   "Wybierz jedno małe działanie na najbliższe siedem dni. Ustal konkretny czas i miejsce, przygotuj pierwszy krok i zapisuj każdą próbę. Po tygodniu zachowaj to, co działało, a trudniejsze elementy uprość. Nowy rozdział może zacząć się w zupełnie zwyczajny dzień."
+  ]},
+  {id:"zl-original-uk-001",lang:"uk",title:"Сила маленьких кроків",author:"Редакція Zer0Life",description:"Оригінальна коротка книга про звички, послідовність і саморозвиток.",pages:[
+   "Великі зміни рідко відбуваються за один день. Частіше вони складаються з невеликих рішень, які ми повторюємо знову і знову. Кілька прочитаних сторінок, коротка прогулянка, щира розмова чи виконаний пункт плану поступово визначають напрям життя.",
+   "Почніть із дії настільки простої, що її важко відкласти. Не обіцяйте собі читати годину — прочитайте дві сторінки після сніданку. Не намагайтеся повністю змінити розпорядок за один вечір. Оберіть один корисний крок на завтра й підготуйте все заздалегідь.",
+   "Оточення впливає на поведінку сильніше, ніж здається. Покладіть книжку на видне місце, відкладіть телефон на час читання, підготуйте робочий простір. Зробіть корисну дію доступною, а відволікання — менш зручним. Добра система допомагає навіть тоді, коли мотивації мало.",
+   "Відстежуйте насамперед дії, а не лише результати. Нові навички, здоров'я чи розвиток проєкту можуть потребувати місяців. Проста позначка в календарі нагадує, що ви дотримуєтеся обіцянки самому собі. Важлива не ідеальна серія, а здатність повертатися до справи.",
+   "Якщо пропустили день, не перетворюйте паузу на доказ власної невдачі. З'ясуйте, що завадило, змініть план і почніть знову. Гнучка система витримує реальне життя. Стійкий прогрес створюють не ті, хто ніколи не зупиняється, а ті, хто вміє продовжувати.",
+   "Оберіть одну невелику дію на наступні сім днів. Визначте точний час і місце, підготуйте перший крок та відзначайте кожну спробу. Наприкінці тижня залиште те, що спрацювало, і спростіть те, що було складним. Нова сторінка може початися зі звичайного дня."
+  ]}
+ ];
+ let added=0;
+ for(const b of books){
+  await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,rights_status,is_published,source_url)
+   VALUES($1,$2,$3,$4,'personal', $5,2026,0,FALSE,'original',TRUE,'https://zer0lifelabs.com')
+   ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,author=EXCLUDED.author,description=EXCLUDED.description,rights_status='original',is_published=TRUE`,
+   [b.id,b.title,b.author,b.description,b.lang]);
+  for(let i=0;i<b.pages.length;i++){
+   await pool.query(`INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)
+    ON CONFLICT(book_id,page_number) DO UPDATE SET page_text=EXCLUDED.page_text`,[b.id,i+1,b.pages[i]]);
+  }
+  added++;
+ }
+ console.log("Original starter books seeded:",added,"books / 24 pages");
+}
+
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -443,7 +494,7 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 
 app.use(express.static(path.join(__dirname,"public")));
 async function start() {
- if (pool) { await initDatabase(); await importCatalogMetadata(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await importCatalogMetadata(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
