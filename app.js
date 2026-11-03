@@ -2,7 +2,7 @@ const API = (window.ZER0LIFE_API_BASE || "").replace(/\/$/, "");
 const apiUrl = (p) => `${API}${p}`;
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor?.("#090909"); tg.setBackgroundColor?.("#090909"); }
-const state={lang:"en",category:"all",filter:"all",query:"",books:[],favorites:new Set(),savedOnly:false,me:null,reading:[]};
+const state={lang:"en",category:"all",filter:"all",query:"",books:[],favorites:new Set(),savedOnly:false,me:null,reading:[],accountError:""};
 const initData=()=>tg?.initData||"";
 async function api(path,options={}) {
  const headers={...(options.headers||{}),"X-Telegram-Init-Data":initData()};
@@ -15,7 +15,7 @@ async function api(path,options={}) {
 async function loadAccount(){
  if(!initData())return;
  try{state.me=await api("/api/me");state.favorites=new Set(state.me.favorites||[]);state.reading=state.me.reading||[];}
- catch(e){console.warn("Account load:",e.message);}
+ catch(e){state.accountError=e.message;console.warn("Account load:",e.message);}
 }
 async function saveProgress(bookId,currentPage,totalPages,status){
  const d=await api("/api/reading/"+encodeURIComponent(bookId),{method:"POST",body:JSON.stringify({currentPage,totalPages,status})});
@@ -124,6 +124,7 @@ $("#modalClose").onclick=closeModal;$("#modalBackdrop").onclick=e=>{if(e.target.
 $("#profileButton").onclick=async()=>{
  if(!initData()){openModal(`<div class="eyebrow">TELEGRAM ACCOUNT</div><h2>Откройте через Telegram</h2><p>Личный кабинет доступен после запуска Mini App из бота.</p>`);return;}
  await loadAccount();
+ if(!state.me){const msg=String(state.accountError||"Не удалось получить профиль").replace(/[<>&"]/g,"");openModal(`<div class="eyebrow">ACCOUNT ERROR</div><h2>Не удалось войти</h2><p>${msg}</p><p>Сервер пока не подтвердил Telegram ID.</p>`);return;}
  const u=state.me?.user||{}, m=state.me?.membership||{}, done=state.reading.filter(x=>x.status==="completed").length, active=state.reading.filter(x=>x.status==="reading").length, planned=state.reading.filter(x=>x.status==="planned").length;
  openModal(`<div class="eyebrow">YOUR ACCOUNT</div><h2>${(u.first_name||"Мой профиль").replace(/[<>&"]/g,"")}</h2><p>Telegram ID: ${u.id||"—"}</p><div class="notice">${state.me?.isAdmin?"ADMIN · FULL FREE ACCESS":("Подписка: "+(m.status||"inactive")+" · "+(m.plan||"free"))}</div>
  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0;text-align:center"><div class="notice"><b>${done}</b><br>Прочитано</div><div class="notice"><b>${active}</b><br>Читаю</div><div class="notice"><b>${planned}</b><br>В планах</div></div>
