@@ -55,8 +55,15 @@ function validateInitData(initData) {
  try { return JSON.parse(p.get("user")||"{}"); } catch { return null; }
 }
 function auth(req,res,next) {
- const user=validateInitData(req.get("X-Telegram-Init-Data")||"");
- if(!user?.id) return res.status(401).json({error:"Valid Telegram Mini App session required"});
+ const raw=req.get("X-Telegram-Init-Data")||"";
+ const user=validateInitData(raw);
+ if(!user?.id) {
+  const p=new URLSearchParams(raw);
+  const age=Number(p.get("auth_date")||0);
+  const reason=!BOT_TOKEN?"BOT_TOKEN_MISSING":!raw?"INIT_DATA_EMPTY":!p.get("hash")?"HASH_MISSING":!age?"AUTH_DATE_MISSING":Date.now()/1000-age>86400?"INIT_DATA_EXPIRED":"SIGNATURE_INVALID";
+  console.warn("Telegram WebApp auth rejected:",reason,"initDataLength:",raw.length);
+  return res.status(401).json({error:reason==="BOT_TOKEN_MISSING"?"Telegram bot token is not configured on the API.":reason==="INIT_DATA_EMPTY"?"Telegram did not provide Mini App initData. Open the app using the bot's Launch button.":reason==="INIT_DATA_EXPIRED"?"Telegram session expired. Close and reopen the Mini App from the bot.":"Telegram signature verification failed. Check that BOT_TOKEN belongs to the bot that launched this Mini App."});
+ }
  req.user=user; next();
 }
 function admin(req,res,next) {
