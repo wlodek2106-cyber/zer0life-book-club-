@@ -5,7 +5,7 @@ const el=id=>document.getElementById(id);
 async function api(path,opts={}){const r=await fetch(API+path,{...opts,headers:{...headers,...(opts.headers||{})}});const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");return d;}
 function safe(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function note(t){const n=el("syncMessage");if(n){n.hidden=false;n.textContent=t;}}
-function setup(){const form=el("bookForm");if(form){form.hidden=true;const h=form.previousElementSibling;if(h&&h.tagName==="H2")h.hidden=true;}
+function setup(){const form=el("bookForm");if(form){form.hidden=true;form.style.display="none";const h=form.previousElementSibling;if(h&&h.tagName==="H2"){h.hidden=true;h.style.display="none";}}
  const catalog=el("bookList");if(catalog&&!el("syncPanel")){const p=document.createElement("section");p.id="syncPanel";p.style.cssText="margin:20px 0;padding:16px;border:1px solid #39352e;border-radius:10px";p.innerHTML='<h2>Automatic online library</h2><p style="color:#999;font-size:12px">Search metadata in EN / RU / PL / UK. Full texts are imported only after commercial distribution rights are verified.</p><button id="discoverBtn" class="gold-button" type="button">Sync online catalog</button><button id="standardEbooksBtn" class="gold-button" type="button" style="margin:10px 0 0">Import Standard Ebooks classics</button><button id="importBtn" class="gold-button" type="button" style="margin:10px 0 0">Import approved full texts</button><div id="syncMessage" class="notice" hidden style="margin-top:10px"></div><h3>Rights review queue</h3><div id="rightsQueue"></div>';catalog.parentNode.insertBefore(p,catalog);}
 }
 async function load(){try{
