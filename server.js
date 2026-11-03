@@ -196,6 +196,29 @@ async function seedSlavicClassicsForRightsReview(){
  }
  console.log('Slavic classics queued for edition-level rights review');
 }
+async function seedMoreSlavicClassicsForReview(){
+ const works=[
+  {id:'ru-anna-karenina',title:'Анна Каренина',author:'Лев Толстой',death:1910,year:1878,lang:'ru',source:'https://ru.wikisource.org/wiki/Анна_Каренина'},
+  {id:'ru-fathers-and-sons',title:'Отцы и дети',author:'Иван Тургенев',death:1883,year:1862,lang:'ru',source:'https://ru.wikisource.org/wiki/Отцы_и_дети'},
+  {id:'ru-dead-souls',title:'Мёртвые души',author:'Николай Гоголь',death:1852,year:1842,lang:'ru',source:'https://ru.wikisource.org/wiki/Мёртвые_души'},
+  {id:'ru-hero-of-our-time',title:'Герой нашего времени',author:'Михаил Лермонтов',death:1841,year:1840,lang:'ru',source:'https://ru.wikisource.org/wiki/Герой_нашего_времени'},
+  {id:'pl-pan-tadeusz',title:'Pan Tadeusz',author:'Adam Mickiewicz',death:1855,year:1834,lang:'pl',source:'https://pl.wikisource.org/wiki/Pan_Tadeusz'},
+  {id:'pl-krzyzacy',title:'Krzyżacy',author:'Henryk Sienkiewicz',death:1916,year:1900,lang:'pl',source:'https://pl.wikisource.org/wiki/Krzyżacy'},
+  {id:'pl-potop',title:'Potop',author:'Henryk Sienkiewicz',death:1916,year:1886,lang:'pl',source:'https://pl.wikisource.org/wiki/Potop'},
+  {id:'pl-faraon',title:'Faraon',author:'Bolesław Prus',death:1912,year:1897,lang:'pl',source:'https://pl.wikisource.org/wiki/Faraon'},
+  {id:'uk-kaidash-family',title:'Кайдашева сім’я',author:'Іван Нечуй-Левицький',death:1918,year:1879,lang:'uk',source:'https://uk.wikisource.org/wiki/Кайдашева_сім’я'},
+  {id:'uk-forest-song',title:'Лісова пісня',author:'Леся Українка',death:1913,year:1911,lang:'uk',source:'https://uk.wikisource.org/wiki/Лісова_пісня'},
+  {id:'uk-aeneid',title:'Енеїда',author:'Іван Котляревський',death:1838,year:1798,lang:'uk',source:'https://uk.wikisource.org/wiki/Енеїда_(Котляревський)'},
+  {id:'uk-black-council',title:'Чорна рада',author:'Пантелеймон Куліш',death:1897,year:1857,lang:'uk',source:'https://uk.wikisource.org/wiki/Чорна_рада'}
+ ];
+ for(const w of works){
+  if(2026-w.death<71)continue;
+  await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,'Original-language literary work candidate. Wikisource edition and exact licence must be reviewed before text import or redistribution.','personal',$4,$5,0,FALSE,NULL,NULL,'pending',FALSE,$6,'Source edition licence not yet verified; commercial subscription redistribution not approved',NULL)
+   ON CONFLICT(id) DO NOTHING`,[w.id,w.title,w.author,w.lang,w.year,w.source]);
+ }
+ console.log('Additional Slavic classics queued for edition and licence review:',works.length);
+}
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -624,7 +647,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
