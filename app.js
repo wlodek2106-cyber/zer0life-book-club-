@@ -85,7 +85,7 @@ ${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" sty
  } else { pagesBox.innerHTML='<p class="notice">Для чтения войдите через Telegram.</p>'; }
  $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
- if($("#buyBook"))$("#subscribeFromReader").onclick=openVip;
+ if($("#subscribeFromReader"))$("#subscribeFromReader").onclick=openVip;
  $("#saveBook").onclick=async()=>{try{if(state.favorites.has(b.id)){await api("/api/favorites/"+encodeURIComponent(b.id),{method:"DELETE"});state.favorites.delete(b.id)}else{await api("/api/favorites/"+encodeURIComponent(b.id),{method:"POST"});state.favorites.add(b.id)}openBook(id)}catch(e){alert("Откройте приложение через Telegram, чтобы сохранять избранное.")}};
 }
 async function startCheckout(path, body={}) {
