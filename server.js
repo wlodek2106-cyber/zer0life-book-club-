@@ -635,8 +635,12 @@ app.post("/api/admin/books/:bookId/rights",auth,admin,async(req,res)=>{
  if(b.rights_status==="licensed"&&!b.permission_reference)
   return res.status(400).json({error:"A written permission or licence reference is required"});
  try{
-  if(b.content_url && !/^https:\/\/(www\\.)?gutenberg\\.org\/.+\\.txt(\\.utf8)?$/i.test(String(b.content_url)))
-  return res.status(400).json({error:"For now, direct full-text import accepts only HTTPS Project Gutenberg .txt files"});
+  if(b.content_url){
+  let source;
+  try{source=new URL(String(b.content_url));}catch(_){return res.status(400).json({error:"Invalid full-text source URL"});}
+  if(source.protocol!=="https:"||!["gutenberg.org","www.gutenberg.org"].includes(source.hostname)||!/\.txt(\.utf8)?$/i.test(source.pathname))
+   return res.status(400).json({error:"For now, direct full-text import accepts only HTTPS Project Gutenberg .txt files"});
+ }
  const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,permission_reference=$4,content_url=COALESCE($5,content_url),rights_checked_at=NOW(),rights_checked_by=$6,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$7 RETURNING id",
    [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,b.permission_reference?String(b.permission_reference).slice(0,500):null,b.content_url||null,req.user.id,req.params.bookId]);
   if(!r.rowCount)return res.status(404).json({error:"Book not found"});
