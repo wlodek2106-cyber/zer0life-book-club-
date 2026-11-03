@@ -80,8 +80,26 @@ ${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" sty
   api("/api/books/"+encodeURIComponent(id)+"/pages").then(data=>{
    const esc=s=>String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
    const pages=data.pages||[];
-   pagesBox.innerHTML=pages.length?("<h3>Чтение</h3>"+pages.map(x=>'<section style="padding:14px 0;border-bottom:1px solid #39352e"><div class="eyebrow">СТРАНИЦА '+x.page_number+'</div><p style="white-space:pre-wrap;line-height:1.7">'+esc(x.page_text)+'</p></section>').join("")+(data.previewOnly?'<p class="notice">Это бесплатный фрагмент. Для полного доступа оформите подписку.</p>':"")):'<p class="notice">Текст пока не загружен. Администратор добавит страницы после проверки прав на книгу.</p>';
-  }).catch(e=>{pagesBox.innerHTML='<p class="notice">Книга пока недоступна для чтения: '+String(e.message||"ошибка загрузки").replace(/[<>&"]/g,"")+'. В библиотеке появятся только книги с загруженным текстом и подтверждёнными правами.</p>';});
+   if(!pages.length){pagesBox.innerHTML='<p class="notice">Полный текст этой книги пока не загружен.</p>';return;}
+   let pageIndex=Math.max(0,pages.findIndex(x=>Number(x.page_number)>Number(p?.current_page||0)));
+   if(p?.current_page)pageIndex=Math.max(0,pages.findIndex(x=>Number(x.page_number)===Number(p.current_page)));
+   if(pageIndex<0)pageIndex=0;
+   const drawPage=()=>{
+    const page=pages[pageIndex];
+    const first=Number(pages[0].page_number)||1,last=Number(pages[pages.length-1].page_number)||pages.length;
+    const current=Number(page.page_number)||pageIndex+1;
+    pagesBox.innerHTML='<div class="reader-shell"><div class="reader-topline"><span>ZER0LIFE READER</span><span>'+current+' / '+last+'</span></div><div class="reader-progress"><i style="width:'+Math.max(2,Math.round((pageIndex+1)/pages.length*100))+'%"></i></div><article class="reader-page"><div class="reader-page-label">THE BOOK · '+String(b.lang||"EN").toUpperCase()+'</div><div class="reader-page-number">'+current+'</div><div class="reader-text">'+esc(page.page_text).replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>')+'</div></article><div class="reader-controls"><button id="readerPrev" '+(pageIndex===0?'disabled':'')+'>← Назад</button><span>Страница '+current+'</span><button id="readerNext" '+(pageIndex===pages.length-1?'disabled':'')+'>Далее →</button></div>'+(data.previewOnly?'<p class="notice">Бесплатный фрагмент: первые 5 страниц. Подписка откроет продолжение книги.</p>':'')+'</div>';
+    $("#readerPrev")?.addEventListener("click",()=>move(-1));
+    $("#readerNext")?.addEventListener("click",()=>move(1));
+   };
+   const move=async step=>{
+    pageIndex=Math.max(0,Math.min(pages.length-1,pageIndex+step));
+    const pg=Number(pages[pageIndex].page_number)||pageIndex+1;
+    drawPage();
+    try{await saveProgress(id,pg,Number(pages[pages.length-1].page_number)||pages.length);}catch(e){console.warn("Progress save failed",e.message);}
+   };
+   drawPage();
+  }).catch(e=>{pagesBox.innerHTML='<p class="notice">Книга пока недоступна для чтения: '+String(e.message||"ошибка загрузки").replace(/[<>&"]/g,"")+'.</p>';});
  } else { pagesBox.innerHTML='<p class="notice">Для чтения войдите через Telegram.</p>'; }
  $("#saveProgress").onclick=async()=>{try{await saveProgress(id,Number($("#progressPage").value)||0,Number($("#progressTotal").value)||null);openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
  $("#completeBook").onclick=async()=>{try{const total=Number($("#progressTotal").value)||null;await saveProgress(id,total||Number($("#progressPage").value)||0,total,"completed");openBook(id);}catch(e){alert("Не удалось сохранить: "+e.message)}};
