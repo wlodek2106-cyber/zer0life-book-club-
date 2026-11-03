@@ -106,7 +106,13 @@ async function startCheckout(path, body={}) {
   }
 }
 function showDemoNotice(){startCheckout("/api/pay/vip")}
-function openVip(){openModal(`<div class="eyebrow gold-text">ZER0LIFE VIP CLUB</div><h2>Knowledge without limits.</h2><div class="vip-price">$15 <small>/ month</small></div><p>Full access to the VIP collection, curated reading paths, saved books and new members-only releases.</p><button class="gold-button" id="joinVip">Continue to membership ↗</button><div class="notice">Preview only. The final amount will be displayed in Telegram Stars before confirmation. Subscription renewals and cancellation controls must be configured before launch.</div>`);$("#joinVip").onclick=()=>startCheckout("/api/pay/vip")}
+function openVip(){openModal(`<div class="eyebrow gold-text">ZER0LIFE BOOK CLUB</div><h2>Choose your membership</h2>
+ <section class="notice"><h3>Standard</h3><div class="vip-price">$15 <small>/ month</small></div><p>General library, reading history, favorites and personal progress.</p><button class="gold-button" id="joinStandard">Choose Standard ↗</button></section>
+ <section class="notice" style="margin-top:12px"><h3>Premium</h3><div class="vip-price">$30 <small>/ month</small></div><p>Everything in Standard, plus business, psychology, finance, leadership and personal growth collections.</p><button class="gold-button" id="joinPremium">Choose Premium ↗</button></section>
+ <p class="notice">Payment is in Telegram Stars. The exact Stars price is shown in the Telegram invoice. Plans remain unavailable until their Stars prices are configured by the administrator.</p>`);
+ $("#joinStandard").onclick=()=>startCheckout("/api/pay/standard");
+ $("#joinPremium").onclick=()=>startCheckout("/api/pay/premium");
+}
 function setLanguage(lang){state.lang=lang;$("#langButton").textContent=lang.toUpperCase()+"⌄";$("#heroSub").textContent=tr().hero;$("#exploreButton").innerHTML=tr().explore+" <span>↗</span>";$("#searchInput").placeholder=tr().search;renderCategories();renderBooks()}
 $("#langButton").onclick=()=>{const next={en:"ru",ru:"pl",pl:"en"}[state.lang];setLanguage(next)};
 $("#searchInput").addEventListener("input",e=>{state.query=e.target.value;loadBooks()});
