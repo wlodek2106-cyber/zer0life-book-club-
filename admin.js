@@ -2,7 +2,18 @@ const API=(window.ZER0LIFE_API_BASE||"").replace(/\/$/,"");
 const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
 const headers={"X-Telegram-Init-Data":tg?.initData||""};
 const el=id=>document.getElementById(id);
-async function api(path,opts={}){const r=await fetch(API+path,{...opts,headers:{...headers,...(opts.headers||{})}});const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");return d;}
+async function api(path,opts={}){
+ let r;
+ try{r=await fetch(API+path,{...opts,headers:{...headers,...(opts.headers||{})}});}
+ catch(e){throw new Error("API connection failed. Check the network or API service.");}
+ const raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{};}catch{throw new Error("API returned an invalid response (HTTP "+r.status+").");}
+ if(!r.ok){
+  if(r.status===401)throw new Error("Telegram session missing. Open Admin Studio from the Zer0Life Book Club bot inside Telegram.");
+  if(r.status===403)throw new Error("This Telegram account is not listed as an administrator.");
+  throw new Error(d.error||("API error HTTP "+r.status));
+ }
+ return d;
+}
 function safe(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function note(t){const n=el("syncMessage");if(n){n.hidden=false;n.textContent=t;}}
 function setup(){const form=el("bookForm");if(form){form.hidden=true;form.style.display="none";const h=form.previousElementSibling;if(h&&h.tagName==="H2"){h.hidden=true;h.style.display="none";}}
