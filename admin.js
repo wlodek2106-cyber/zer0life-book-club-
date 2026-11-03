@@ -19,12 +19,13 @@ async function reviewRights(id){
  if(!status||!["public_domain","licensed","pending"].includes(status))return;
  const license=window.prompt("Exact licence / rights basis (required)","");
  const evidence=window.prompt("Public HTTPS link proving the rights status","");
+ const contentUrl=window.prompt("Direct full-text HTTPS .txt URL from Project Gutenberg (leave blank if unavailable)","");
  if(!license||!evidence)return;
  let permission=null;
  if(status==="licensed"){permission=window.prompt("Publisher permission / contract reference (required)","");if(!permission)return;}
  if(!window.confirm("Save this rights decision for "+id+"? Only approve when the evidence covers this exact edition, translation, cover and commercial subscription redistribution."))return;
  try{
-  await api("/api/admin/books/"+encodeURIComponent(id)+"/rights",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rights_status:status,source_license:license,rights_evidence_url:evidence,permission_reference:permission})});
+  await api("/api/admin/books/"+encodeURIComponent(id)+"/rights",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({rights_status:status,source_license:license,rights_evidence_url:evidence,permission_reference:permission,content_url:contentUrl||null})});
   note("Rights decision saved for "+id);await load();
  }catch(e){note("Rights review failed: "+e.message);}
 }
