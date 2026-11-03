@@ -697,7 +697,8 @@ async function importApprovedOnlineBooks(limit=20) {
  }
  return {processed:results.length,results};
 }
-app.post("/api/admin/import-standard-ebooks",auth,admin,async(_req,res)=>{try{const result=await importStandardEbooks();res.json({ok:true,results:result});}catch(e){res.status(500).json({error:e.message});}});\napp.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
+app.post("/api/admin/import-standard-ebooks",auth,admin,async(_req,res)=>{try{const result=await importStandardEbooks();res.json({ok:true,results:result});}catch(e){res.status(500).json({error:e.message});}});
+app.post("/api/admin/import-approved",auth,admin,async(req,res)=>{
  try{const result=await importApprovedOnlineBooks(req.body?.limit);res.json({ok:true,...result});}
  catch(e){res.status(500).json({error:e.message});}
 });
