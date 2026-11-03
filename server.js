@@ -5,13 +5,16 @@ const { Pool } = require("pg");
 const path = require("path");
 
 const app = express();
+app.use(express.json({ limit: "1mb" }));
 const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || crypto.randomBytes(32).toString("hex");
 const ADMINS = new Set((process.env.ADMIN_TELEGRAM_IDS || "").split(",").map(s=>s.trim()).filter(Boolean));
 const VIP_PRICE = Number(process.env.VIP_PRICE_STARS || 1500);
 const VIP_PERIOD = Number(process.env.VIP_PERIOD_SECONDS || 2592000);
 const API_BASE = process.env.API_BASE_URL || "";
+const PUBLIC_API_URL = process.env.PUBLIC_API_URL || "https://zer0life-book-club-api.onrender.com";
+const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || "https://zer0life-book-club.onrender.com";
 const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined
@@ -124,35 +127,27 @@ app.post("/api/pay/vip",auth,async(req,res)=>{
  }catch(e){res.status(500).json({error:e.message});}
 });
 
-// Set webhook to /telegram/webhook/<WEBHOOK_SECRET>. Telegram retries updates; payment charge IDs are idempotency keys.
-app.post(`/telegram/webhook/${WEBHOOK_SECRET || "not-configured"}`,async(req,res)=>{
- try{
-  const u=req.body;
-  if(u.pre_checkout_query) {
-   await botApi("answerPreCheckoutQuery",{pre_checkout_query_id:u.pre_checkout_query.id,ok:true});
+// Telegram webhook: validate Telegram's secret-token header.
+app.post(`/telegram/webhook/${WEBHOOK_SECRET}`, async (req,res) => {
+ if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) return res.sendStatus(401);
+ const u = req.body || {};
+ try {
+  const msg = u.message;
+  if (msg?.text?.startsWith("/start")) {
+   await botApi("sendMessage", {
+    chat_id: msg.chat.id,
+    text: "Welcome to Zer0Life Book Club! Open the library to explore books and your reading space.",
+    reply_markup: { inline_keyboard: [[{ text: "📚 Open Book Club", web_app: { url: PUBLIC_APP_URL } }]] }
+   });
+  } else if (msg?.text?.startsWith("/help")) {
+   await botApi("sendMessage", { chat_id: msg.chat.id, text: "Use /start to open Zer0Life Book Club." });
   }
-  const msg=u.message;
-  const sp=msg?.successful_payment;
-  if(sp && pool) {
-   const payload=sp.invoice_payload||"", uid=Number(msg.from.id);
-   await ensureUser(msg.from);
-   await pool.query("INSERT INTO payment_events(telegram_payment_charge_id,telegram_id,payload) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",
-    [sp.telegram_payment_charge_id,uid,sp]);
-   if(payload.startsWith("vip:")) {
-    const expiry=sp.subscription_expiration_date?new Date(sp.subscription_expiration_date*1000):new Date(Date.now()+VIP_PERIOD*1000);
-    await pool.query(`INSERT INTO memberships(telegram_id,status,subscription_charge_id,expires_at) VALUES($1,'active',$2,$3)
-      ON CONFLICT(telegram_id) DO UPDATE SET status='active',subscription_charge_id=EXCLUDED.subscription_charge_id,expires_at=EXCLUDED.expires_at,updated_at=NOW()`,
-     [uid,sp.telegram_payment_charge_id,expiry]);
-   } else if(payload.startsWith("book:")) {
-    const bookId=payload.split(":")[1];
-    await pool.query("INSERT INTO purchases(telegram_id,book_id,telegram_payment_charge_id,total_amount,currency) VALUES($1,$2,$3,$4,$5) ON CONFLICT(telegram_payment_charge_id) DO NOTHING",
-     [uid,bookId,sp.telegram_payment_charge_id,sp.total_amount,sp.currency]);
-   }
-   await botApi("sendMessage",{chat_id:uid,text:"Payment received. Your Zer0Life Book Club access is being updated."});
+  // Keep checkout disabled until DB migrations and invoice ownership/amount validation are complete.
+  if (u.pre_checkout_query) {
+   await botApi("answerPreCheckoutQuery", { pre_checkout_query_id: u.pre_checkout_query.id, ok: false, error_message: "Payments are temporarily unavailable. Please try again later." });
   }
-  // Recurring renewal updates can contain successful_payment; canceled/expired subscription handling should be reconciled from Telegram updates and expiry.
   res.sendStatus(200);
- }catch(e){console.error(e);res.sendStatus(200);}
+ } catch (e) { console.error("Telegram webhook handler error:", e.message); res.sendStatus(500); }
 });
 
 app.get("/api/admin/books",auth,admin,async(req,res)=>{
@@ -182,4 +177,13 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 });
 
 app.use(express.static(path.join(__dirname,"public")));
-app.listen(PORT,()=>console.log(`Zer0Life Book Club API listening on ${PORT}`));
+const server = app.listen(PORT, async () => {
+ console.log(`Zer0Life Book Club API listening on ${PORT}`);
+ if (BOT_TOKEN) {
+  try {
+   const webhookUrl = `${PUBLIC_API_URL}/telegram/webhook/${WEBHOOK_SECRET}`;
+   const result = await botApi("setWebhook", { url: webhookUrl, secret_token: WEBHOOK_SECRET, allowed_updates: ["message", "pre_checkout_query"] });
+   console.log("Telegram webhook registered:", result === true ? "yes" : "no");
+  } catch (e) { console.error("Telegram webhook registration failed:", e.message); }
+ } else console.warn("BOT_TOKEN missing; bot webhook not registered.");
+});
