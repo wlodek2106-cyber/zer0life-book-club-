@@ -167,7 +167,7 @@ async function seedInitialEnglishClassics(){
  for(const w of works){
   if(2026-w.death<71)continue;
   const id="pg-"+w.id;
-  const contentUrl=null;
+  const contentUrl="https://www.gutenberg.org/cache/epub/"+w.id+"/pg"+w.id+".txt.utf8";
   const sourceUrl="https://www.gutenberg.org/ebooks/"+w.id;
   const evidence=null;
   const r=await pool.query(`INSERT INTO books
@@ -181,18 +181,18 @@ async function seedInitialEnglishClassics(){
 }
 async function seedSlavicClassicsForRightsReview(){
  const works=[
-  {id:'ru-war-and-peace',title:'Война и мир',author:'Лев Толстой',death:1910,year:1869,lang:'ru',category:'personal'},
-  {id:'ru-crime-and-punishment',title:'Преступление и наказание',author:'Фёдор Достоевский',death:1881,year:1866,lang:'ru',category:'psychology'},
-  {id:'pl-lalka',title:'Lalka',author:'Bolesław Prus',death:1912,year:1890,lang:'pl',category:'personal'},
-  {id:'pl-quo-vadis',title:'Quo Vadis',author:'Henryk Sienkiewicz',death:1916,year:1896,lang:'pl',category:'personal'},
-  {id:'uk-tini-zabutykh-predkiv',title:'Тіні забутих предків',author:'Михайло Коцюбинський',death:1913,year:1911,lang:'uk',category:'personal'},
-  {id:'uk-zakhar-berkut',title:'Захар Беркут',author:'Іван Франко',death:1916,year:1883,lang:'uk',category:'personal'}
+  {id:'ru-war-and-peace',title:'Война и мир',author:'Лев Толстой',death:1910,year:1869,lang:'ru',category:'personal',source:'https://ru.wikisource.org/wiki/Война_и_мир'},
+  {id:'ru-crime-and-punishment',title:'Преступление и наказание',author:'Фёдор Достоевский',death:1881,year:1866,lang:'ru',category:'psychology',source:'https://ru.wikisource.org/wiki/Преступление_и_наказание'},
+  {id:'pl-lalka',title:'Lalka',author:'Bolesław Prus',death:1912,year:1890,lang:'pl',category:'personal',source:'https://pl.wikisource.org/wiki/Lalka'},
+  {id:'pl-quo-vadis',title:'Quo Vadis',author:'Henryk Sienkiewicz',death:1916,year:1896,lang:'pl',category:'personal',source:'https://pl.wikisource.org/wiki/Quo_Vadis'},
+  {id:'uk-tini-zabutykh-predkiv',title:'Тіні забутих предків',author:'Михайло Коцюбинський',death:1913,year:1911,lang:'uk',category:'personal',source:'https://uk.wikisource.org/wiki/Тіні_забутих_предків'},
+  {id:'uk-zakhar-berkut',title:'Захар Беркут',author:'Іван Франко',death:1916,year:1883,lang:'uk',category:'personal',source:'https://uk.wikisource.org/wiki/Захар_Беркут'}
  ];
  for(const w of works){
   if(2026-w.death<71)continue;
   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-   VALUES($1,$2,$3,'Original-language edition candidate. Full text and exact edition rights must be verified before distribution.',$4,$5,$6,0,FALSE,NULL,NULL,'pending',FALSE,NULL,'Author death term appears expired; edition, translation, scan and commercial redistribution rights remain unverified',NULL)
-   ON CONFLICT(id) DO NOTHING`,[w.id,w.title,w.author,w.category,w.lang,w.year]);
+   VALUES($1,$2,$3,'Original-language edition candidate. Full text and exact edition rights must be verified before distribution.',$4,$5,$6,0,FALSE,NULL,NULL,'pending',FALSE,$7,'Author death term appears expired; edition, translation, scan and commercial redistribution rights remain unverified',NULL)
+   ON CONFLICT(id) DO NOTHING`,[w.id,w.title,w.author,w.category,w.lang,w.year,w.source||null]);
  }
  console.log('Slavic classics queued for edition-level rights review');
 }
