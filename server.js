@@ -167,17 +167,17 @@ async function seedInitialEnglishClassics(){
  for(const w of works){
   if(2026-w.death<71)continue;
   const id="pg-"+w.id;
-  const contentUrl="https://gutenberg.pglaf.org/cache/epub/"+w.id+"/pg"+w.id+".txt";
+  const contentUrl=null;
   const sourceUrl="https://www.gutenberg.org/ebooks/"+w.id;
-  const evidence="https://eli.gov.pl/api/acts/DU/2025/24/text.html";
+  const evidence=null;
   const r=await pool.query(`INSERT INTO books
    (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-   VALUES($1,$2,$3,$4,$5,'en', $6,0,FALSE,NULL,$7,'public_domain',FALSE,$8,$9,$10)
+   VALUES($1,$2,$3,$4,$5,'en', $6,0,FALSE,NULL,$7,'pending',FALSE,$8,$9,$10)
    ON CONFLICT(id) DO NOTHING RETURNING id`,
-   [id,w.title,w.author,"Original English edition. Author died more than 70 years ago; edition and source terms retained for review.",w.category,w.year,contentUrl,sourceUrl,"Original work; Polish Copyright Act Art. 36 life+70 (edition/source review required)",evidence]);
+   [id,w.title,w.author,"Original English edition. Author died more than 70 years ago; edition and source terms retained for review.",w.category,w.year,contentUrl,sourceUrl,"Project Gutenberg US public-domain claim; EU/Polish redistribution review required",evidence]);
   added+=r.rowCount;
  }
- console.log("Initial English classics queued:",added);
+ console.log("Initial English classics queued for rights review:",added);
 }
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
