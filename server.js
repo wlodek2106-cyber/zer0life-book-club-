@@ -85,7 +85,7 @@ async function initDatabase() {
    cover_url TEXT, content_url TEXT, rights_status TEXT DEFAULT 'pending',
    is_published BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW()
   );
-  ALTER TABLE books ADD COLUMN IF NOT EXISTS year INTEGER;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS year INTEGER;\n  ALTER TABLE books ADD COLUMN IF NOT EXISTS source_url TEXT;
   ALTER TABLE books ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
   CREATE TABLE IF NOT EXISTS memberships (
    telegram_id BIGINT PRIMARY KEY REFERENCES users(telegram_id),
@@ -137,6 +137,58 @@ async function initDatabase() {
  console.log("Database schema ready");
 }
 
+async function importCatalogMetadata() {
+ // Import metadata only. Nothing is published until distribution rights are reviewed.
+ const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50}];
+ let inserted = 0;
+ for (const target of targets) {
+  try {
+   let url = `https://gutendex.com/books?languages=${target.code}&copyright=false&mime_type=text%2F&sort=popular`;
+   let collected = [];
+   while (url && collected.length < target.limit) {
+    const response = await fetch(url, {headers:{"User-Agent":"Zer0LifeBookClub/1.0 (catalog metadata import)"}});
+    if (!response.ok) throw new Error(`Gutendex HTTP ${response.status}`);
+    const data = await response.json();
+    collected.push(...(data.results || []));
+    url = data.next;
+   }
+   for (const b of collected.slice(0,target.limit)) {
+    const author = (b.authors || []).map(a=>a.name).join(", ") || "Unknown";
+    const textUrl = b.formats?.["text/plain; charset=utf-8"] || b.formats?.["text/plain"] || null;
+    const cover = b.formats?.["image/jpeg"] || null;
+    const result = await pool.query(`INSERT INTO books
+     (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
+     VALUES($1,$2,$3,$4,$5,$6,NULL,0,FALSE,$7,$8,'pending',FALSE,$9)
+     ON CONFLICT(id) DO NOTHING RETURNING id`,
+     [`pg-${b.id}`,b.title,author,(b.subjects||[]).slice(0,5).join("; "), "personal",target.code,cover,textUrl,`https://www.gutenberg.org/ebooks/${b.id}`]);
+    inserted += result.rowCount;
+   }
+  } catch(e) { console.error(`Catalog metadata import failed for ${target.code}:`,e.message); }
+ }
+ // Polish open-library metadata fallback. Wolne Lektury terms and each work's licence
+ // must be reviewed before any item can be published or placed behind a paywall.
+ try {
+  const response=await fetch("https://wolnelektury.pl/api/books/");
+  if(response.ok) {
+   const items=await response.json();
+   let n=0;
+   for(const b of items) {
+    if(n>=50) break;
+    const title=String(b.title||"").trim();
+    const href=String(b.href||"").trim();
+    if(!title||!href) continue;
+    const slug=href.split("/").filter(Boolean).pop();
+    const result=await pool.query(`INSERT INTO books
+     (id,title,author,description,category,language,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
+     VALUES($1,$2,$3,$4,'personal','pl',0,FALSE,$5,$6,'pending',FALSE,$6)
+     ON CONFLICT(id) DO NOTHING RETURNING id`,
+     [`wl-${slug}`,title,String(b.author||"Unknown"),String(b.genre||""),b.cover||null,`https://wolnelektury.pl${href}`]);
+    inserted+=result.rowCount; n++;
+   }
+  }
+ } catch(e) { console.error("Wolne Lektury metadata import failed:",e.message); }
+ console.log("Catalog metadata import finished; inserted:",inserted,"(all entries pending rights review)");
+}
 async function ensureUser(u) {
  if(!pool) throw new Error("DATABASE_URL is not configured");
  await pool.query(`INSERT INTO users(telegram_id,username,first_name,language_code) VALUES($1,$2,$3,$4)
@@ -341,7 +393,7 @@ app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
 
 app.use(express.static(path.join(__dirname,"public")));
 async function start() {
- if (pool) await initDatabase();
+ if (pool) { await initDatabase(); await importCatalogMetadata(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
