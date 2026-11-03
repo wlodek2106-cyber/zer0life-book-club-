@@ -91,6 +91,7 @@ async function initDatabase() {
   ALTER TABLE books ADD COLUMN IF NOT EXISTS rights_checked_at TIMESTAMPTZ;
   ALTER TABLE books ADD COLUMN IF NOT EXISTS rights_checked_by BIGINT;
   ALTER TABLE books ADD COLUMN IF NOT EXISTS full_text_source_url TEXT;
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS permission_reference TEXT;
   CREATE INDEX IF NOT EXISTS books_rights_review_idx ON books(rights_status,language);
   ALTER TABLE books ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
   CREATE TABLE IF NOT EXISTS memberships (
@@ -536,8 +537,8 @@ app.post("/api/admin/books/:bookId/rights",auth,admin,async(req,res)=>{
  if(b.rights_status==="licensed"&&!b.permission_reference)
   return res.status(400).json({error:"A written permission or licence reference is required"});
  try{
-  const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,rights_checked_at=NOW(),rights_checked_by=$4,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$5 RETURNING id",
-   [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,req.user.id,req.params.bookId]);
+  const r=await pool.query("UPDATE books SET rights_status=$1,source_license=$2,rights_evidence_url=$3,permission_reference=$4,rights_checked_at=NOW(),rights_checked_by=$5,is_published=CASE WHEN $1='pending' THEN FALSE ELSE is_published END WHERE id=$6 RETURNING id",
+   [b.rights_status,String(b.source_license).slice(0,300),b.rights_evidence_url,b.permission_reference?String(b.permission_reference).slice(0,500):null,req.user.id,req.params.bookId]);
   if(!r.rowCount)return res.status(404).json({error:"Book not found"});
   res.json({ok:true,id:r.rows[0].id,rights_status:b.rights_status});
  }catch(e){res.status(500).json({error:e.message});}
