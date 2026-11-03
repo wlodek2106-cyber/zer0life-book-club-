@@ -522,7 +522,7 @@ app.get("/api/books/:bookId/pages",auth,async(req,res)=>{
   const b=await pool.query("SELECT id,category,vip_only FROM books WHERE id=$1 AND is_published=true AND rights_status IN ('licensed','public_domain','original')",[req.params.bookId]);
   if(!b.rows[0]) return res.status(404).json({error:"Book not found or distribution rights not verified"});
   const access=await getReaderAccess(req.user.id,b.rows[0]);
-  const pageLimit=access.fullAccess?Number.MAX_SAFE_INTEGER:5;
+  const pageLimit=access.fullAccess?2147483647:5; // PostgreSQL INTEGER is signed 32-bit; MAX_SAFE_INTEGER overflows it.
   const pages=await pool.query("SELECT page_number,page_text FROM book_pages WHERE book_id=$1 AND page_number<=$2 ORDER BY page_number",[req.params.bookId,pageLimit]);
   res.json({bookId:req.params.bookId,access,previewOnly:!access.fullAccess,pages:pages.rows});
  } catch(e){res.status(500).json({error:e.message});}
