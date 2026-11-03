@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#090909"><title>Zer0Life Book Club</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/config.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-mark">Z<span>0</span>L</div>
+      <div class="brand-copy"><b>ZER0LIFE</b><small>BOOK CLUB</small></div>
+      <button class="lang-button" id="langButton">EN⌄</button>
+      <button class="avatar" id="profileButton">◉</button>
+    </header>
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span></span> KNOWLEDGE IS YOUR ADVANTAGE</div>
+        <h1>Expand your<br><em>mind.</em></h1>
+        <p id="heroSub">A curated library for ambitious minds, thoughtful leaders and lifelong learners.</p>
+        <button class="gold-button" id="exploreButton">Explore the library <span>↗</span></button>
+        <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+        <div class="hero-stamp">READ<br>GROW<br>LEAD</div>
+      </section>
+
+      <section class="membership-strip">
+        <div><div class="eyebrow gold-text">THE INNER CIRCLE</div><b>Unlock the entire library</b><small>One membership. A world of knowledge.</small></div>
+        <button id="vipButton">$15 <small>/ mo</small><span>→</span></button>
+      </section>
+
+      <section class="section" id="library">
+        <div class="section-heading"><div><div class="eyebrow">DISCOVER</div><h2>Explore categories</h2></div><span class="count" id="bookCount">08 BOOKS</span></div>
+        <div class="category-grid" id="categoryGrid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading"><div><div class="eyebrow">YOUR NEXT CHAPTER</div><h2>Library</h2></div></div>
+        <label class="search"><span>⌕</span><input id="searchInput" placeholder="Search books, authors, ideas..."><kbd>⌘ K</kbd></label>
+        <div class="filter-row"><div class="filter-tabs" id="filterTabs"><button class="active" data-filter="all">All</button><button data-filter="en">English</button><button data-filter="ru">Русский</button></div><select id="sortSelect"><option value="featured">Featured</option><option value="az">A–Z</option></select></div>
+        <div class="book-grid" id="bookGrid"></div>
+      </section>
+
+      <section class="vip-card">
+        <div class="eyebrow gold-text">ZER0LIFE VIP CLUB</div><h2>Knowledge without<br><em>limits.</em></h2>
+        <p>Get access to the full members' collection, curated reading paths and new releases.</p>
+        <div class="vip-price">$15 <small>/ month</small></div>
+        <button class="gold-button wide" id="vipButton2">Become a member <span>↗</span></button>
+        <small class="fine-print">Illustrative price. Final Telegram Stars price will be shown at checkout.</small>
+      </section>
+    </main>
+    <nav class="bottom-nav">
+      <button class="nav-active" data-nav="home"><span>⌂</span>Home</button>
+      <button data-nav="library"><span>▤</span>Library</button>
+      <button data-nav="saved"><span>♡</span>Saved</button>
+      <button data-nav="profile"><span>◉</span>Profile</button>
+    </nav>
+  </div>
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body></html>
