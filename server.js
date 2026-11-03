@@ -12,6 +12,7 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || crypto.randomBytes(32).toSt
 const ADMINS = new Set((process.env.ADMIN_TELEGRAM_IDS || "").split(",").map(s=>s.trim()).filter(Boolean));
 const VIP_PRICE = Number(process.env.VIP_PRICE_STARS || 1500);
 const VIP_PERIOD = Number(process.env.VIP_PERIOD_SECONDS || 2592000);
+const PREMIUM_CATEGORIES = new Set(["business","psychology","psychosomatics","leadership","money","personal"]);
 const API_BASE = process.env.API_BASE_URL || "";
 const PUBLIC_API_URL = process.env.PUBLIC_API_URL || "https://zer0life-book-club-api.onrender.com";
 const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || "https://zer0life-book-club.onrender.com";
@@ -116,6 +117,13 @@ async function initDatabase() {
    CHECK (status IN ('planned','reading','completed'))
   );
   CREATE INDEX IF NOT EXISTS reading_progress_user_status_idx ON reading_progress(telegram_id,status);
+  CREATE TABLE IF NOT EXISTS book_pages (
+   book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+   page_number INTEGER NOT NULL CHECK (page_number > 0),
+   page_text TEXT NOT NULL,
+   created_at TIMESTAMPTZ DEFAULT NOW(),
+   PRIMARY KEY (book_id,page_number)
+  );
  `);
  console.log("Database schema ready");
 }
@@ -138,6 +146,31 @@ async function catalog(req,res) {
  const rows=sampleBooks.filter(b=>(cat==="all"||b.category===cat)&&(lang==="all"||b.lang===lang)&&(!q||`${b.title} ${b.author} ${b.description}`.toLowerCase().includes(q)));
  res.json({categories,books:rows});
 }
+
+// Reader access policy: first five pages are free. Standard unlocks general-library books;
+// Premium unlocks every tier. Admins bypass all membership checks.
+async function getReaderAccess(telegramId, book) {
+ if (ADMINS.has(String(telegramId))) return { isAdmin:true, plan:"admin", fullAccess:true, previewPages:5 };
+ const r=await pool.query("SELECT plan,status,expires_at FROM memberships WHERE telegram_id=$1",[telegramId]);
+ const m=r.rows[0]||{plan:"free",status:"inactive",expires_at:null};
+ const active=m.status==="active" && (!m.expires_at || new Date(m.expires_at)>new Date());
+ const plan=active?m.plan:"free";
+ const premiumBook=PREMIUM_CATEGORIES.has(book.category) || !!book.vip_only;
+ const fullAccess=plan==="premium" || (plan==="standard" && !premiumBook);
+ return {isAdmin:false,plan,fullAccess,previewPages:5};
+}
+app.get("/api/books/:bookId/pages",auth,async(req,res)=>{
+ try {
+  await ensureUser(req.user);
+  const b=await pool.query("SELECT id,category,vip_only FROM books WHERE id=$1 AND is_published=true AND rights_status IN ('licensed','public_domain','original')",[req.params.bookId]);
+  if(!b.rows[0]) return res.status(404).json({error:"Book not found or distribution rights not verified"});
+  const access=await getReaderAccess(req.user.id,b.rows[0]);
+  const pageLimit=access.fullAccess?Number.MAX_SAFE_INTEGER:5;
+  const pages=await pool.query("SELECT page_number,page_text FROM book_pages WHERE book_id=$1 AND page_number<=$2 ORDER BY page_number",[req.params.bookId,pageLimit]);
+  res.json({bookId:req.params.bookId,access,previewOnly:!access.fullAccess,pages:pages.rows});
+ } catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get("/api/health",async(_req,res)=>{
  try{if(pool)await pool.query("SELECT 1");res.json({ok:true,app:"Zer0Life Book Club",database:!!pool,databaseConnected:!!pool});}
  catch(e){res.status(503).json({ok:false,app:"Zer0Life Book Club",database:false,error:"Database connection failed"});}
@@ -147,12 +180,12 @@ app.get("/api/me",auth,async(req,res)=>{
  try{
   await ensureUser(req.user);
   const [m,f,p]=await Promise.all([
-   pool.query("SELECT status,expires_at FROM memberships WHERE telegram_id=$1",[req.user.id]),
+   pool.query("SELECT status,plan,expires_at FROM memberships WHERE telegram_id=$1",[req.user.id]),
    pool.query("SELECT book_id FROM favorites WHERE telegram_id=$1",[req.user.id]),
    pool.query("SELECT book_id FROM purchases WHERE telegram_id=$1",[req.user.id])
   ]);
   const progress=await pool.query("SELECT book_id,current_page,total_pages,status,updated_at,completed_at FROM reading_progress WHERE telegram_id=$1 ORDER BY updated_at DESC",[req.user.id]);
-  res.json({user:req.user,isAdmin:ADMINS.has(String(req.user.id)),membership:m.rows[0]||{status:"inactive",plan:"free"},favorites:f.rows.map(x=>x.book_id),ownedBooks:p.rows.map(x=>x.book_id),reading:progress.rows});
+  res.json({user:req.user,isAdmin:ADMINS.has(String(req.user.id)),membership:(()=>{const x=m.rows[0]||{status:"inactive",plan:"free",expires_at:null};if(x.status!=="active"||(x.expires_at&&new Date(x.expires_at)<=new Date()))return {...x,status:"inactive",plan:"free"};return x;})(),favorites:f.rows.map(x=>x.book_id),ownedBooks:p.rows.map(x=>x.book_id),reading:progress.rows});
  }catch(e){res.status(503).json({error:e.message});}
 });
 app.post("/api/favorites/:bookId",auth,async(req,res)=>{
@@ -239,6 +272,20 @@ app.post("/api/admin/books",auth,admin,async(req,res)=>{
   res.json({ok:true,id:r.rows[0].id});
  }catch(e){res.status(500).json({error:e.message});}
 });
+app.post("/api/admin/books/:bookId/pages",auth,admin,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const pageNumber=Math.floor(Number(req.body.pageNumber));
+  const pageText=String(req.body.pageText||"");
+  if(!Number.isInteger(pageNumber)||pageNumber<1||!pageText.trim()) return res.status(400).json({error:"Positive pageNumber and non-empty pageText are required"});
+  const book=await pool.query("SELECT id,rights_status FROM books WHERE id=$1",[req.params.bookId]);
+  if(!book.rows[0]) return res.status(404).json({error:"Book not found"});
+  if(!["licensed","public_domain","original"].includes(book.rows[0].rights_status)) return res.status(403).json({error:"Book distribution rights must be verified before adding readable content"});
+  await pool.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3) ON CONFLICT(book_id,page_number) DO UPDATE SET page_text=EXCLUDED.page_text",[req.params.bookId,pageNumber,pageText]);
+  res.json({ok:true,bookId:req.params.bookId,pageNumber});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
  try{
   const [users,subs,books,sales]=await Promise.all([
