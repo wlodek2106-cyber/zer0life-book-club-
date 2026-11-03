@@ -10,8 +10,9 @@ const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || "";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || crypto.randomBytes(32).toString("hex");
 const ADMINS = new Set((process.env.ADMIN_TELEGRAM_IDS || "").split(",").map(s=>s.trim()).filter(Boolean));
-const VIP_PRICE = Number(process.env.VIP_PRICE_STARS || 1500);
-const VIP_PERIOD = Number(process.env.VIP_PERIOD_SECONDS || 2592000);
+const STANDARD_PRICE = Number(process.env.STANDARD_PRICE_STARS || 0);
+const PREMIUM_PRICE = Number(process.env.PREMIUM_PRICE_STARS || 0);
+const VIP_PERIOD = 2592000;
 const PREMIUM_CATEGORIES = new Set(["business","psychology","psychosomatics","leadership","money","personal"]);
 const API_BASE = process.env.API_BASE_URL || "";
 const PUBLIC_API_URL = process.env.PUBLIC_API_URL || "https://zer0life-book-club-api.onrender.com";
@@ -124,6 +125,14 @@ async function initDatabase() {
    created_at TIMESTAMPTZ DEFAULT NOW(),
    PRIMARY KEY (book_id,page_number)
   );
+  CREATE TABLE IF NOT EXISTS pending_payments (
+   payload TEXT PRIMARY KEY, telegram_id BIGINT NOT NULL REFERENCES users(telegram_id),
+   kind TEXT NOT NULL CHECK (kind IN ('standard','premium','book')),
+   book_id TEXT REFERENCES books(id), amount INTEGER NOT NULL,
+   currency TEXT NOT NULL DEFAULT 'XTR', status TEXT NOT NULL DEFAULT 'pending',
+   created_at TIMESTAMPTZ DEFAULT NOW(), paid_at TIMESTAMPTZ
+  );
+  ALTER TABLE purchases ADD COLUMN IF NOT EXISTS plan TEXT;
  `);
  console.log("Database schema ready");
 }
@@ -215,47 +224,78 @@ app.delete("/api/favorites/:bookId",auth,async(req,res)=>{
  catch(e){res.status(500).json({error:e.message});}
 });
 
-// Telegram Stars: all digital goods/services use currency XTR and an empty provider_token.
+// Telegram Stars subscriptions. Prices must be explicitly configured in Render.
+async function createMembershipInvoice(req,res,plan,amount) {
+ try {
+  if(!amount || !Number.isInteger(amount) || amount<1) return res.status(503).json({error:"This plan is not available yet: Stars price has not been configured."});
+  await ensureUser(req.user);
+  const payload=`membership:${plan}:${req.user.id}:${crypto.randomUUID()}`;
+  await pool.query("INSERT INTO pending_payments(payload,telegram_id,kind,amount) VALUES($1,$2,$3,$4)",[payload,req.user.id,plan,amount]);
+  try {
+   await botApi("sendInvoice",{chat_id:req.user.id,title:`Zer0Life ${plan==="standard"?"Standard":"Premium"}`,description:`30 days of ${plan} library membership`,payload,provider_token:"",currency:"XTR",prices:[{label:`${plan} · 30 days`,amount}],subscription_period:VIP_PERIOD});
+  } catch(e) {
+   await pool.query("DELETE FROM pending_payments WHERE payload=$1",[payload]);
+   throw e;
+  }
+  res.json({ok:true,message:"Invoice sent to your Telegram chat"});
+ } catch(e){res.status(500).json({error:e.message});}
+}
+app.post("/api/pay/standard",auth,(req,res)=>createMembershipInvoice(req,res,"standard",STANDARD_PRICE));
+app.post("/api/pay/premium",auth,(req,res)=>createMembershipInvoice(req,res,"premium",PREMIUM_PRICE));
+// Legacy route intentionally maps to Standard, but remains unavailable until its price is configured.
+app.post("/api/pay/vip",auth,(req,res)=>createMembershipInvoice(req,res,"standard",STANDARD_PRICE));
+
 app.post("/api/pay/book",auth,async(req,res)=>{
  try{
   await ensureUser(req.user);
-  const r=pool?await pool.query("SELECT id,title,price_stars FROM books WHERE id=$1 AND is_published=true AND rights_status IN ('licensed','public_domain','original')",[req.body.bookId]):{rows:[]};
+  const r=await pool.query("SELECT id,title,price_stars FROM books WHERE id=$1 AND is_published=true AND rights_status IN ('licensed','public_domain','original')",[req.body.bookId]);
   const book=r.rows[0]; if(!book)return res.status(404).json({error:"Published, rights-cleared book not found"});
+  if(!Number.isInteger(book.price_stars)||book.price_stars<1)return res.status(503).json({error:"Book price is not configured"});
   const payload=`book:${book.id}:${req.user.id}:${crypto.randomUUID()}`;
-  await botApi("sendInvoice",{chat_id:req.user.id,title:book.title,description:`Digital book: ${book.title}`,payload,provider_token:"",currency:"XTR",prices:[{label:book.title,amount:book.price_stars}]});
+  await pool.query("INSERT INTO pending_payments(payload,telegram_id,kind,book_id,amount) VALUES($1,$2,'book',$3,$4)",[payload,req.user.id,book.id,book.price_stars]);
+  try{await botApi("sendInvoice",{chat_id:req.user.id,title:book.title,description:`Digital book: ${book.title}`,payload,provider_token:"",currency:"XTR",prices:[{label:book.title,amount:book.price_stars}]});}
+  catch(e){await pool.query("DELETE FROM pending_payments WHERE payload=$1",[payload]);throw e;}
   res.json({ok:true,message:"Invoice sent to your Telegram chat"});
  }catch(e){res.status(500).json({error:e.message});}
 });
-app.post("/api/pay/vip",auth,async(req,res)=>{
- try{
-  await ensureUser(req.user);
-  const payload=`vip:${req.user.id}:${crypto.randomUUID()}`;
-  await botApi("sendInvoice",{chat_id:req.user.id,title:"Zer0Life VIP Club",description:"30 days of access to the VIP book library",payload,provider_token:"",currency:"XTR",prices:[{label:"VIP membership · 30 days",amount:VIP_PRICE}],subscription_period:VIP_PERIOD});
-  res.json({ok:true,message:"VIP invoice sent to your Telegram chat"});
- }catch(e){res.status(500).json({error:e.message});}
-});
 
-// Telegram webhook: validate Telegram's secret-token header.
-app.post("/telegram/webhook", async (req,res) => {
- if (req.get("X-Telegram-Bot-Api-Secret-Token") !== WEBHOOK_SECRET) return res.sendStatus(401);
- const u = req.body || {};
- try {
-  const msg = u.message;
-  if (msg?.text?.startsWith("/start")) {
-   await botApi("sendMessage", {
-    chat_id: msg.chat.id,
-    text: "Welcome to Zer0Life Book Club! Open the library to explore books and your reading space.",
-    reply_markup: { inline_keyboard: [[{ text: "📚 Open Book Club", web_app: { url: PUBLIC_APP_URL } }]] }
-   });
-  } else if (msg?.text?.startsWith("/help")) {
-   await botApi("sendMessage", { chat_id: msg.chat.id, text: "Use /start to open Zer0Life Book Club." });
+// Telegram webhook validates the invoice against the pending server-side record.
+app.post("/telegram/webhook",async(req,res)=>{
+ if(req.get("X-Telegram-Bot-Api-Secret-Token")!==WEBHOOK_SECRET)return res.sendStatus(401);
+ const u=req.body||{};
+ try{
+  const msg=u.message;
+  if(msg?.text?.startsWith("/start")){
+   await botApi("sendMessage",{chat_id:msg.chat.id,text:"Welcome to Zer0Life Book Club! Open the library to explore books and your reading space.",reply_markup:{inline_keyboard:[[{text:"📚 Open Book Club",web_app:{url:PUBLIC_APP_URL}}]]}});
+  }else if(msg?.text?.startsWith("/help"))await botApi("sendMessage",{chat_id:msg.chat.id,text:"Use /start to open Zer0Life Book Club."});
+  if(u.pre_checkout_query){
+   const q=u.pre_checkout_query;
+   const p=await pool.query("SELECT telegram_id,amount,currency,status FROM pending_payments WHERE payload=$1",[q.invoice_payload]);
+   const item=p.rows[0];
+   const valid=!!item&&item.status==="pending"&&String(item.telegram_id)===String(q.from.id)&&item.amount===q.total_amount&&item.currency===q.currency&&q.currency==="XTR";
+   await botApi("answerPreCheckoutQuery",{pre_checkout_query_id:q.id,ok:valid,...(!valid?{error_message:"Invoice could not be verified. Please create a new invoice."}:{})});
   }
-  // Keep checkout disabled until DB migrations and invoice ownership/amount validation are complete.
-  if (u.pre_checkout_query) {
-   await botApi("answerPreCheckoutQuery", { pre_checkout_query_id: u.pre_checkout_query.id, ok: false, error_message: "Payments are temporarily unavailable. Please try again later." });
+  if(msg?.successful_payment){
+   const s=msg.successful_payment;
+   const client=await pool.connect();
+   try{
+    await client.query("BEGIN");
+    const found=await client.query("SELECT * FROM pending_payments WHERE payload=$1 FOR UPDATE",[s.invoice_payload]);
+    const p=found.rows[0];
+    if(p&&p.status==="pending"&&String(p.telegram_id)===String(msg.from.id)&&p.amount===s.total_amount&&p.currency===s.currency&&s.currency==="XTR"){
+     await client.query("INSERT INTO purchases(telegram_id,book_id,telegram_payment_charge_id,total_amount,currency,plan) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(telegram_payment_charge_id) DO NOTHING",[p.telegram_id,p.book_id,s.telegram_payment_charge_id,s.total_amount,s.currency,p.kind==="book"?null:p.kind]);
+     if(p.kind==="standard"||p.kind==="premium"){
+      const expiry=s.subscription_expiration_date?new Date(s.subscription_expiration_date*1000):new Date(Date.now()+VIP_PERIOD*1000);
+      await client.query(`INSERT INTO memberships(telegram_id,status,plan,expires_at,updated_at) VALUES($1,'active',$2,$3,NOW())
+       ON CONFLICT(telegram_id) DO UPDATE SET status='active',plan=EXCLUDED.plan,expires_at=GREATEST(COALESCE(memberships.expires_at,NOW()),EXCLUDED.expires_at),updated_at=NOW()`,[p.telegram_id,p.kind,expiry]);
+     }
+     await client.query("UPDATE pending_payments SET status='paid',paid_at=NOW() WHERE payload=$1",[p.payload]);
+    }
+    await client.query("COMMIT");
+   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
   }
   res.sendStatus(200);
- } catch (e) { console.error("Telegram webhook handler error:", e.message); res.sendStatus(500); }
+ }catch(e){console.error("Telegram webhook handler error:",e.message);res.sendStatus(500);}
 });
 
 app.get("/api/admin/books",auth,admin,async(req,res)=>{
