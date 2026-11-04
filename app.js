@@ -84,25 +84,17 @@ ${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" sty
    let pageIndex=Math.max(0,pages.findIndex(x=>Number(x.page_number)>Number(p?.current_page||0)));
    if(p?.current_page)pageIndex=Math.max(0,pages.findIndex(x=>Number(x.page_number)===Number(p.current_page)));
    if(pageIndex<0)pageIndex=0;
-   let turnDirection="";
    const drawPage=()=>{
     const page=pages[pageIndex];
     const first=Number(pages[0].page_number)||1,last=Number(pages[pages.length-1].page_number)||pages.length;
     const current=Number(page.page_number)||pageIndex+1;
-    pagesBox.innerHTML='<div class="reader-shell"><div class="reader-topline"><span>ZER0LIFE READER</span><span>'+current+' / '+last+'</span></div><div class="reader-progress"><i style="width:'+Math.max(2,Math.round((pageIndex+1)/pages.length*100))+'%"></i></div><article class="reader-page '+turnDirection+'"><div class="reader-page-label">THE BOOK · '+String(b.lang||"EN").toUpperCase()+'</div><div class="reader-page-number">'+current+'</div><div class="reader-text">'+esc(page.page_text).replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>')+'</div></article><div class="reader-controls"><button id="readerPrev" '+(pageIndex===0?'disabled':'')+'>← Назад</button><span>Страница '+current+'</span><button id="readerNext" '+(pageIndex===pages.length-1?'disabled':'')+'>Далее →</button></div>'+(data.previewOnly?'<p class="notice">Бесплатный фрагмент: первые 5 страниц. Подписка откроет продолжение книги.</p>':'')+'</div>';
+    pagesBox.innerHTML='<div class="reader-shell"><div class="reader-topline"><span>ZER0LIFE READER</span><span>'+current+' / '+last+'</span></div><div class="reader-progress"><i style="width:'+Math.max(2,Math.round((pageIndex+1)/pages.length*100))+'%"></i></div><article class="reader-page"><div class="reader-page-label">THE BOOK · '+String(b.lang||"EN").toUpperCase()+'</div><div class="reader-page-number">'+current+'</div><div class="reader-text">'+esc(page.page_text).replace(/\n{2,}/g,'</p><p>').replace(/\n/g,'<br>')+'</div></article><div class="reader-controls"><button id="readerPrev" '+(pageIndex===0?'disabled':'')+'>← Назад</button><span>Страница '+current+'</span><button id="readerNext" '+(pageIndex===pages.length-1?'disabled':'')+'>Далее →</button></div>'+(data.previewOnly?'<p class="notice">Бесплатный фрагмент: первые 5 страниц. Подписка откроет продолжение книги.</p>':'')+'</div>';
     $("#readerPrev")?.addEventListener("click",()=>move(-1));
     $("#readerNext")?.addEventListener("click",()=>move(1));
-    const swipePage=pagesBox.querySelector(".reader-page");
-    if(swipePage){
-     let startX=0,startY=0;
-     swipePage.addEventListener("touchstart",event=>{const t=event.changedTouches[0];startX=t.clientX;startY=t.clientY;},{passive:true});
-     swipePage.addEventListener("touchend",event=>{const t=event.changedTouches[0],dx=t.clientX-startX,dy=t.clientY-startY;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.25)move(dx<0?1:-1);},{passive:true});
-    }
    };
    const move=async step=>{
     const nextIndex=Math.max(0,Math.min(pages.length-1,pageIndex+step));
     if(nextIndex===pageIndex)return;
-    turnDirection=step>0?"page-turn-next":"page-turn-prev";
     pageIndex=nextIndex;
     const pg=Number(pages[pageIndex].page_number)||pageIndex+1;
     drawPage();
