@@ -825,12 +825,16 @@ async function importCatalogMetadata() {
     const title=String(b.title||"").trim();
     const href=String(b.href||"").trim();
     if(!title||!href) continue;
-    const slug=href.split("/").filter(Boolean).pop();
+    let workUrl;
+    try { workUrl = new URL(href, "https://wolnelektury.pl").toString(); } catch { continue; }
+    if (new URL(workUrl).hostname !== "wolnelektury.pl") continue;
+    const slug=new URL(workUrl).pathname.split("/").filter(Boolean).pop();
+    if (!slug) continue;
     const result=await pool.query(`INSERT INTO books
      (id,title,author,description,category,language,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url)
      VALUES($1,$2,$3,$4,'personal','pl',0,FALSE,$5,$6,'pending',FALSE,$6)
      ON CONFLICT(id) DO NOTHING RETURNING id`,
-     [`wl-${slug}`,title,String(b.author||"Unknown"),String(b.genre||""),b.cover||null,`https://wolnelektury.pl${href}`]);
+     [`wl-${slug}`,title,String(b.author||"Unknown"),String(b.genre||""),b.cover||null,workUrl]);
     inserted+=result.rowCount; n++;
    }
   }
@@ -1346,7 +1350,8 @@ async function start() {
      await importCatalogMetadata();
      await importStandardEbooks();
      await importCuratedWikisourceBooks();
-     try { await require('./scripts/import-entrepreneurship')(pool); } catch (error) { console.error('Entrepreneurship full-text import failed:', error.message); }
+     try { const result = await require('./scripts/import-entrepreneurship')(pool); console.log('Entrepreneurship full-text import result:', JSON.stringify(result)); } catch (error) { console.error('Entrepreneurship full-text import failed:', error.stack || error.message); }
+     try { const result = await require('./scripts/import-principles-management')(pool); console.log('Principles of Management full-text import result:', JSON.stringify(result)); } catch (error) { console.error('Principles of Management full-text import failed:', error.stack || error.message); }
      scheduleCatalogSync();
      console.log("Background catalogue import finished.");
     } catch (error) {
