@@ -315,7 +315,7 @@ async function seedOriginalGrowthBooks(){
      await client.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[id,i+1,chapters[i]]);
      pages++;
     }
-    await client.query("UPDATE books SET is_published=TRUE WHERE id=$1 AND rights_status='original' AND (SELECT COUNT(*) FROM book_pages WHERE book_id=$1)>=3",[id]);
+    await client.query("UPDATE books SET is_published=FALSE WHERE id=$1 AND rights_status='original'",[id]);
     await client.query("COMMIT");added++;
    }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
   }
@@ -328,7 +328,7 @@ async function seedOriginalStarterBooks() {
   // Short starter guides are not part of the product. Keep them unpublished.
   // Only complete, rights-cleared books with full text may appear in the catalog.
   const result = await pool.query(
-    "UPDATE books SET is_published=FALSE WHERE id LIKE 'zl-original-%' AND is_published=TRUE"
+    "UPDATE books SET is_published=FALSE WHERE is_published=TRUE AND (id LIKE 'zl-original-%' OR id LIKE 'zl-clear-thinking-%' OR id LIKE 'zl-social-intelligence-%' OR id LIKE 'zl-speak-with-clarity-%' OR id LIKE 'zl-personal-systems-%')"
   );
   console.log("Short starter guides hidden from catalog:", result.rowCount);
 }
