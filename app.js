@@ -135,7 +135,7 @@ function openVip(){openModal(`<div class="eyebrow gold-text">ZER0LIFE BOOK CLUB<
  $("#joinStandard").onclick=()=>startCheckout("/api/pay/standard");
  $("#joinPremium").onclick=()=>startCheckout("/api/pay/premium");
 }
-function setLanguage(lang){state.lang=lang;state.filter=lang;$("#langButton").textContent=lang.toUpperCase()+"⌄";$("#heroSub").textContent=tr().hero;$("#exploreButton").innerHTML=tr().explore+" <span>↗</span>";$("#searchInput").placeholder=tr().search;$("#filterTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.filter===lang));renderCategories();loadBooks()}
+function setLanguage(lang){state.lang=lang;$("#langButton").textContent=lang.toUpperCase()+"⌄";$("#heroSub").textContent=tr().hero;$("#exploreButton").innerHTML=tr().explore+" <span>↗</span>";$("#searchInput").placeholder=tr().search;$("#filterTabs").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x.dataset.filter===state.filter));renderCategories();loadBooks()}
 $("#langButton").onclick=()=>{const next={en:"ru",ru:"pl",pl:"uk",uk:"en"}[state.lang];setLanguage(next)};
 $("#searchInput").addEventListener("input",e=>{state.query=e.target.value;loadBooks()});
 $("#sortSelect").onchange=renderBooks;
