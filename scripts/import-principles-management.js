@@ -67,16 +67,23 @@ module.exports = async function importPrinciplesManagement(pool) {
     throw new Error("Book index did not expose the expected CC BY 4.0 notice");
   }
   const basePath = new URL(indexUrl).pathname.replace(/\/$/, "") + "/";
-  const firstLevel = extractLinks(indexHtml, indexUrl, basePath);
-  const chapterRoots = firstLevel.filter(u => /\/(?:\d{2}%3A|\d{2}:|\d{2}%3a)/i.test(new URL(u).pathname));
-  if (chapterRoots.length < 10) throw new Error("Expected 16 module links; found " + chapterRoots.length);
+  const moduleSlugs = [
+    "01:_Introduction_to_Management","02:_History_of_Management","03:_Planning_and_Mission",
+    "04:_Environments_and_Strategic_Management","05:_Decision_Making","06:_Organizational_Structures",
+    "07:_Human_Resource_Management","08:_Groups,_Teams,_and_Teamwork","09:_Culture_and_Diversity",
+    "10:_Leadership","11:_Motivation","12:_The_Individual_and_the_Organization",
+    "13:_Ethics_in_Business","14:_Communication","15:_Control","16:_Globalization_and_Business"
+  ];
+  const chapterRoots = moduleSlugs.map(slug =>
+    new URL(encodeURIComponent(slug), indexUrl.replace(/\/$/, "") + "/").toString()
+  );
   const allPages = new Set();
   for (const chapterUrl of chapterRoots) {
-    allPages.add(chapterUrl);
     const chapterHtml = await get(chapterUrl);
     const subpages = extractLinks(chapterHtml, chapterUrl, basePath);
     for (const u of subpages) {
-      if (u !== chapterUrl && /\/\d{2}\.\d{2}%3A|\/\d{2}\.\d{2}:/i.test(new URL(u).pathname)) allPages.add(u);
+      const path = decodeURIComponent(new URL(u).pathname);
+      if (/\/\d{1,2}\.\d{1,2}:/.test(path)) allPages.add(u);
     }
   }
   const ordered = [...allPages].sort((a,b) => a.localeCompare(b));
