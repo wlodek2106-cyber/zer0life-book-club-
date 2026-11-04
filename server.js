@@ -216,7 +216,7 @@ async function seedInitialEnglishClassics(){
   const r=await pool.query(`INSERT INTO books
    (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
    VALUES($1,$2,$3,$4,$5,'en', $6,0,FALSE,NULL,$7,'pending',FALSE,$8,$9,$10)
-   ON CONFLICT(id) DO NOTHING RETURNING id`,
+   ON CONFLICT(id) DO UPDATE SET cover_url=EXCLUDED.cover_url,description=EXCLUDED.description,category=EXCLUDED.category WHERE books.rights_status='pending' AND books.is_published=FALSE RETURNING id`,
    [id,w.title,w.author,"Original English edition. Author died more than 70 years ago; edition and source terms retained for review.",w.category,w.year,contentUrl,sourceUrl,"Project Gutenberg US public-domain claim; EU/Polish redistribution review required",evidence]);
   added+=r.rowCount;
  }
@@ -366,9 +366,9 @@ async function seedHumanBehaviorCandidates(){
  for(const [id,title,author,year,lang,category,description] of works){
   const r=await pool.query(`INSERT INTO books
    (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-   VALUES($1,$2,$3,$4,$5,$6,$7,0,TRUE,NULL,NULL,'pending',FALSE,NULL,$8,NULL)
+   VALUES($1,$2,$3,$4,$5,$6,$7,0,TRUE,$8,NULL,'pending',FALSE,NULL,$9,NULL)
    ON CONFLICT(id) DO NOTHING RETURNING id`,
-   [id,title,author,description,category,lang,year,"Metadata candidate only. Full-text, translation, cover and commercial redistribution rights not yet verified."]);
+   [id,title,author,description,category,lang,year,"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/human-behavior/"+id+".svg","Metadata candidate only. Full-text, translation and commercial redistribution rights not yet verified."]);
   added+=r.rowCount;
  }
  console.log("Human behaviour and relationship titles queued for rights review:",added);
