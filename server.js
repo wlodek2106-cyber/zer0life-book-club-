@@ -1249,6 +1249,10 @@ async function start() {
       console.log('Taylor importer found:', importerPath);
       const imported = await require(importerPath)(pool);
       console.log('Taylor management import result:', JSON.stringify(imported));
+      try {
+       const barnum = await require('./scripts/import-barnum-money-getting')(pool);
+       console.log('Barnum money getting import result:', JSON.stringify(barnum));
+      } catch (error) { console.error('Barnum full-text import failed:', error.stack || error.message); }
      } catch (error) { console.error('Taylor management full-text import failed:', error.stack || error.message); }
      await seedKnowledgeLibraryCandidates();
      await seedHumanBehaviorCandidates();
