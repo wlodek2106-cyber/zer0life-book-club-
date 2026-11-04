@@ -637,14 +637,16 @@ async function importCuratedWikisourceBooks(){
     let lastError;
     for(let attempt=0;attempt<5;attempt++){
      try{
-      if(attempt>0)await new Promise(resolve=>setTimeout(resolve,1500*Math.pow(2,attempt-1)));
+      if(attempt>0)await new Promise(resolve=>setTimeout(resolve,5000*Math.pow(2,attempt-1)));
       const waitMs=Math.max(0,1200-(Date.now()-lastWikisourceRequestAt));
       if(waitMs)await new Promise(resolve=>setTimeout(resolve,waitMs));
       lastWikisourceRequestAt=Date.now();
       const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
       if(response.status===429||response.status>=500){
+       const retryAfter=Number(response.headers.get("retry-after"));
+       const retryDelay=Number.isFinite(retryAfter)&&retryAfter>0?Math.min(retryAfter,120):0;
        lastError=new Error("Wikisource API HTTP "+response.status+" for "+title);
-       if(attempt<4)continue;
+       if(attempt<4){if(retryDelay)await new Promise(resolve=>setTimeout(resolve,retryDelay*1000));continue;}
        throw lastError;
       }
       if(!response.ok)throw new Error("Wikisource API HTTP "+response.status+" for "+title);
