@@ -1227,7 +1227,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalGrowthBooks(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await seedHumanBehaviorCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); try { await require('./scripts/import-wolne-lektury')(pool); } catch (error) { console.error('Wolne Lektury import failed:', error.message); } scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalGrowthBooks(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await seedHumanBehaviorCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); // Wolne Lektury classics importer disabled: business and psychology are the current catalogue priority. scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
