@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1350" viewBox="0 0 900 1350">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101316"/><stop offset="1" stop-color="#30231b"/></linearGradient><radialGradient id="glow"><stop stop-color="#b98b49" stop-opacity=".45"/><stop offset="1" stop-color="#b98b49" stop-opacity="0"/></radialGradient></defs>
+<rect width="900" height="1350" fill="url(#bg)"/><circle cx="450" cy="560" r="390" fill="url(#glow)"/>
+<g fill="none" stroke="#c9a66b" stroke-width="3" opacity=".8"><circle cx="450" cy="570" r="245"/><circle cx="450" cy="570" r="190"/><path d="M170 570h560M450 290v560M260 380l380 380M640 380 260 760"/></g>
+<g fill="#d7bd91" opacity=".9"><circle cx="450" cy="570" r="13"/><circle cx="450" cy="325" r="7"/><circle cx="450" cy="815" r="7"/><circle cx="205" cy="570" r="7"/><circle cx="695" cy="570" r="7"/></g>
+<text x="450" y="150" text-anchor="middle" fill="#c9a66b" font-family="Georgia,serif" font-size="28" letter-spacing="8">ZER0LIFE BOOK CLUB</text>
+<text x="450" y="990" text-anchor="middle" fill="#f4eee4" font-family="Georgia,serif" font-size="72" letter-spacing="2">PSYCHOLOGIA</text>
+<text x="450" y="1080" text-anchor="middle" fill="#f4eee4" font-family="Georgia,serif" font-size="72" letter-spacing="2">TŁUMU</text>
+<path d="M300 1135h300" stroke="#c9a66b" stroke-width="2"/>
+<text x="450" y="1205" text-anchor="middle" fill="#c9a66b" font-family="Georgia,serif" font-size="34">GUSTAW LE BON</text>
+<text x="450" y="1270" text-anchor="middle" fill="#a99a83" font-family="Arial,sans-serif" font-size="20" letter-spacing="5">LWÓW · WARSZAWA · 1899</text>
+</svg>
