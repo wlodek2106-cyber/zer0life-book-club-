@@ -307,6 +307,73 @@ async function seedKnowledgeLibraryCandidates(){
  console.log("Knowledge category candidates queued:",added);
 }
 
+async function seedHumanBehaviorCandidates(){
+ const works=[
+  // English edition candidates — all remain hidden until exact edition and commercial rights are checked.
+  ["en-crowd-le-bon","The Crowd: A Study of the Popular Mind","Gustave Le Bon",1895,"en","psychology","Historical social psychology; read critically and compare with modern research."],
+  ["en-psychology-persuasion","Influence: The Psychology of Persuasion","Robert B. Cialdini",1984,"en","psychology","Persuasion research, compliance and ethical influence; edition rights review required."],
+  ["en-games-people-play","Games People Play","Eric Berne",1964,"en","relationships","Transactional analysis and recurring interpersonal patterns; not a diagnostic tool."],
+  ["en-presentation-self","The Presentation of Self in Everyday Life","Erving Goffman",1956,"en","communication","Sociological analysis of social roles and impression management."],
+  ["en-attached","Attached","Amir Levine and Rachel Heller",2010,"en","relationships","Popular introduction to adult attachment; compare claims with current evidence."],
+  ["en-emotional-intelligence","Emotional Intelligence","Daniel Goleman",1995,"en","psychology","Emotional awareness and regulation; popular synthesis, not a clinical manual."],
+  ["en-gaslight-effect","The Gaslight Effect","Robin Stern",2007,"en","relationships","Recognising manipulative relationship patterns and rebuilding self-trust."],
+  ["en-difficult-conversations","Difficult Conversations","Douglas Stone, Bruce Patton and Sheila Heen",1999,"en","communication","Practical framework for conflict, listening and hard conversations."],
+  ["en-48-laws-power","The 48 Laws of Power","Robert Greene",1998,"en","leadership","A critical study of power strategies; analyse ethically rather than imitate coercion."],
+  ["en-laws-human-nature","The Laws of Human Nature","Robert Greene",2018,"en","psychology","Popular interpretations of motives and social behaviour; claims require critical reading."],
+  ["en-surrounded-idiots","Surrounded by Idiots","Thomas Erikson",2014,"en","relationships","Popular communication typology; colour categories are not validated personality diagnoses."],
+  ["en-body-language","What Every BODY Is Saying","Joe Navarro",2008,"en","psychology","Nonverbal behaviour and observation; gestures do not reliably reveal a person's thoughts or deception."],
+  // Russian
+  ["ru-crowd-le-bon","Психология народов и масс","Гюстав Лебон",1895,"ru","psychology","Историческая социальная психология; сопоставлять с современными исследованиями."],
+  ["ru-influence-cialdini","Психология влияния","Роберт Чалдини",1984,"ru","psychology","Принципы убеждения, согласия и этичного влияния."],
+  ["ru-games-people-play","Игры, в которые играют люди","Эрик Берн",1964,"ru","relationships","Транзактный анализ и повторяющиеся сценарии общения; не диагностический инструмент."],
+  ["ru-presentation-self","Представление себя другим в повседневной жизни","Эрвинг Гоффман",1956,"ru","communication","Социальные роли и управление впечатлением."],
+  ["ru-attached","Подходим друг другу","Амир Левин и Рэйчел Хеллер",2010,"ru","relationships","Популярное введение в теорию привязанности; проверять научные утверждения."],
+  ["ru-emotional-intelligence","Эмоциональный интеллект","Дэниел Гоулман",1995,"ru","psychology","Эмоциональная осознанность и саморегуляция."],
+  ["ru-gaslight-effect","Эффект газлайтинга","Робин Стерн",2007,"ru","relationships","Распознавание психологического давления и восстановление доверия к себе."],
+  ["ru-difficult-conversations","Трудные разговоры","Дуглас Стоун, Брюс Паттон и Шейла Хин",1999,"ru","communication","Практика сложных разговоров, слушания и разрешения конфликтов."],
+  ["ru-48-laws-power","48 законов власти","Роберт Грин",1998,"ru","leadership","Критическое изучение стратегий власти, а не руководство принуждением."],
+  ["ru-laws-human-nature","Законы человеческой природы","Роберт Грин",2018,"ru","psychology","Популярные интерпретации мотивов; оценивать критически."],
+  ["ru-surrounded-idiots","Кругом одни идиоты","Томас Эриксон",2014,"ru","relationships","Популярная типология общения; цветовые типы не являются научным диагнозом."],
+  ["ru-body-language","Я вижу, о чём вы думаете","Джо Наварро",2008,"ru","psychology","Невербальное поведение; отдельный жест не раскрывает мысли и не доказывает ложь."],
+  // Polish
+  ["pl-crowd-le-bon","Psychologia tłumu","Gustave Le Bon",1895,"pl","psychology","Historyczna psychologia społeczna; czytać krytycznie i porównywać z aktualnymi badaniami."],
+  ["pl-influence-cialdini","Wywieranie wpływu na ludzi","Robert B. Cialdini",1984,"pl","psychology","Perswazja, uległość i etyczny wpływ."],
+  ["pl-games-people-play","W co grają ludzie","Eric Berne",1964,"pl","relationships","Analiza transakcyjna i wzorce relacji; nie jest narzędziem diagnostycznym."],
+  ["pl-presentation-self","Człowiek w teatrze życia codziennego","Erving Goffman",1956,"pl","communication","Role społeczne i zarządzanie wrażeniem."],
+  ["pl-attached","Partnerstwo bliskości","Amir Levine i Rachel Heller",2010,"pl","relationships","Popularne wprowadzenie do teorii przywiązania; warto weryfikować twierdzenia."],
+  ["pl-emotional-intelligence","Inteligencja emocjonalna","Daniel Goleman",1995,"pl","psychology","Świadomość emocji i samoregulacja."],
+  ["pl-gaslight-effect","Efekt Gaslight","Robin Stern",2007,"pl","relationships","Rozpoznawanie manipulacji i odbudowa zaufania do siebie."],
+  ["pl-difficult-conversations","Trudne rozmowy","Douglas Stone, Bruce Patton i Sheila Heen",1999,"pl","communication","Praktyczne podejście do konfliktów i trudnych rozmów."],
+  ["pl-48-laws-power","48 praw władzy","Robert Greene",1998,"pl","leadership","Krytyczna analiza strategii władzy, nie instrukcja przymusu."],
+  ["pl-laws-human-nature","Prawa ludzkiej natury","Robert Greene",2018,"pl","psychology","Popularne interpretacje motywów; wymagają krytycznej oceny."],
+  ["pl-surrounded-idiots","Otoczeni przez idiotów","Thomas Erikson",2014,"pl","relationships","Popularna typologia komunikacji; kolory nie są diagnozą osobowości."],
+  ["pl-body-language","Mowa ciała","Joe Navarro",2008,"pl","psychology","Zachowania niewerbalne; pojedynczy gest nie ujawnia myśli ani kłamstwa."],
+  // Ukrainian
+  ["uk-crowd-le-bon","Психологія народів і мас","Гюстав Лебон",1895,"uk","psychology","Історична соціальна психологія; критично зіставляти із сучасними дослідженнями."],
+  ["uk-influence-cialdini","Психологія впливу","Роберт Чалдіні",1984,"uk","psychology","Переконання, згода та етичний вплив."],
+  ["uk-games-people-play","Ігри, у які грають люди","Ерік Берн",1964,"uk","relationships","Транзакційний аналіз і сценарії взаємодії; не діагностичний інструмент."],
+  ["uk-presentation-self","Презентація себе іншим у повсякденному житті","Ервінг Гофман",1956,"uk","communication","Соціальні ролі та керування враженням."],
+  ["uk-attached","Attached: теорія прив’язаності у стосунках","Амір Левін і Рейчел Геллер",2010,"uk","relationships","Популярний вступ до теорії прив’язаності; твердження варто перевіряти."],
+  ["uk-emotional-intelligence","Емоційний інтелект","Деніел Ґоулман",1995,"uk","psychology","Емоційна усвідомленість і саморегуляція."],
+  ["uk-gaslight-effect","Ефект газлайтингу","Робін Стерн",2007,"uk","relationships","Розпізнавання психологічного тиску та відновлення довіри до себе."],
+  ["uk-difficult-conversations","Складні розмови","Дуглас Стоун, Брюс Паттон і Шейла Гін",1999,"uk","communication","Практичні підходи до конфліктів і складних розмов."],
+  ["uk-48-laws-power","48 законів влади","Роберт Ґрін",1998,"uk","leadership","Критичний аналіз стратегій влади, а не інструкція з примусу."],
+  ["uk-laws-human-nature","Закони людської природи","Роберт Ґрін",2018,"uk","psychology","Популярні інтерпретації мотивів; потрібне критичне читання."],
+  ["uk-surrounded-idiots","У колі одні ідіоти","Томас Еріксон",2014,"uk","relationships","Популярна типологія комунікації; кольорові типи не є діагнозом."],
+  ["uk-body-language","Мова тіла","Джо Наварро",2008,"uk","psychology","Невербальна поведінка; один жест не розкриває думок і не доводить брехню."]
+ ];
+ let added=0;
+ for(const [id,title,author,year,lang,category,description] of works){
+  const r=await pool.query(`INSERT INTO books
+   (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,$4,$5,$6,$7,0,TRUE,NULL,NULL,'pending',FALSE,NULL,$8,NULL)
+   ON CONFLICT(id) DO NOTHING RETURNING id`,
+   [id,title,author,description,category,lang,year,"Metadata candidate only. Full-text, translation, cover and commercial redistribution rights not yet verified."]);
+  added+=r.rowCount;
+ }
+ console.log("Human behaviour and relationship titles queued for rights review:",added);
+}
+
 async function seedNextClassicsForRightsReview(){
  const works=[
   {id:'en-moby-dick',title:'Moby-Dick; or, The Whale',author:'Herman Melville',death:1891,year:1851,lang:'en'},
@@ -915,7 +982,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await seedHumanBehaviorCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
