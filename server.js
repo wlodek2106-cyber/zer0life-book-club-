@@ -849,10 +849,12 @@ async function ensureUser(u) {
 async function catalog(req,res) {
  const q=String(req.query.q||"").toLowerCase(), cat=String(req.query.category||"all"), lang=String(req.query.lang||"all");
  if(pool) {
-  const r=await pool.query(`SELECT id,title,author,description,category,language AS lang,year,price_stars AS "priceStars",vip_only AS vip,cover_url AS cover
-   FROM books WHERE is_published=true AND rights_status IN ('licensed','public_domain','original')
-   AND ($1='all' OR category=$1) AND ($2='all' OR language=$2)
-   AND EXISTS (SELECT 1 FROM book_pages bp WHERE bp.book_id=books.id)\n   AND ($3='' OR LOWER(title||' '||author||' '||description) LIKE '%'||$3||'%') ORDER BY created_at DESC`,[cat,lang,q]);
+  const r=await pool.query(`SELECT id,title,author,description,category,language AS lang,year,price_stars AS "priceStars",vip_only AS vip,cover_url AS cover,
+   rights_status AS "rightsStatus",is_published AS "isPublished",
+   EXISTS (SELECT 1 FROM book_pages bp WHERE bp.book_id=books.id) AS "hasFullText"
+   FROM books
+   WHERE ($1='all' OR category=$1) AND ($2='all' OR language=$2)
+   AND ($3='' OR LOWER(title||' '||author||' '||description) LIKE '%'||$3||'%') ORDER BY created_at DESC,[cat,lang,q]);
   return res.json({categories,books:r.rows});
  }
  const rows=sampleBooks.filter(b=>(cat==="all"||b.category===cat)&&(lang==="all"||b.lang===lang)&&(!q||`${b.title} ${b.author} ${b.description}`.toLowerCase().includes(q)));
