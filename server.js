@@ -1244,7 +1244,7 @@ app.post("/api/admin/discover-catalog",auth,admin,async(req,res)=>{
 });
 app.get("/api/admin/rights-review",auth,admin,async(_req,res)=>{
  try{
-  const r=await pool.query("SELECT id,title,author,language,year,source_url,content_url,source_license,rights_status,rights_evidence_url,rights_checked_at FROM books WHERE rights_status='pending' OR rights_evidence_url IS NULL ORDER BY created_at DESC LIMIT 250");
+  const r=await pool.query("SELECT id,title,author,language,year,source_url,content_url,source_license,rights_status,rights_evidence_url,rights_checked_at FROM books WHERE rights_status='pending' ORDER BY created_at DESC LIMIT 250");
   res.json({books:r.rows});
  }catch(e){res.status(500).json({error:e.message});}
 });
