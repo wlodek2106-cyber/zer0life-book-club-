@@ -1,6 +1,16 @@
 {
   "catalog_version": 1,
-  "priority": ["business", "psychology", "marketing", "money", "leadership", "entrepreneurship", "communication", "critical-thinking", "personal"],
+  "priority": [
+    "business",
+    "psychology",
+    "marketing",
+    "money",
+    "leadership",
+    "entrepreneurship",
+    "communication",
+    "critical-thinking",
+    "personal"
+  ],
   "policy": {
     "publish_full_text_only_when": [
       "The exact edition has an explicit CC BY 4.0 or equivalent commercial-redistribution licence, or written permission.",
@@ -17,7 +27,13 @@
       "author": "Michael Laverty, Chris Littel et al.",
       "language": "en",
       "category": "business",
-      "subcategories": ["entrepreneurship", "business-models", "marketing", "sales", "finance"],
+      "subcategories": [
+        "entrepreneurship",
+        "business-models",
+        "marketing",
+        "sales",
+        "finance"
+      ],
       "source": "https://biz.libretexts.org/Bookshelves/Business/Entrepreneurship/Entrepreneurship_(OpenStax)",
       "license": "CC BY 4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -26,57 +42,24 @@
       "verified_scope": "15 chapters plus front and back matter"
     },
     {
-      "id": "oer-principles-management",
-      "title": "Principles of Management",
-      "author": "David S. Bright, Anastasia H. Cortes et al.",
-      "language": "en",
-      "category": "business",
-      "subcategories": ["management", "leadership", "strategy", "teams", "motivation"],
-      "source": "https://biz.libretexts.org/Bookshelves/Management/Principles_of_Management",
-      "license": "CC BY 4.0",
-      "license_url": "https://creativecommons.org/licenses/by/4.0/",
-      "source_type": "LibreTexts",
-      "full_text": true
-    },
-    {
-      "id": "oer-marketing-for-entrepreneurs",
-      "title": "Marketing for Entrepreneurs",
-      "author": "Kathrina Miranda",
-      "language": "en",
-      "category": "marketing",
-      "subcategories": ["marketing", "sales", "entrepreneurship"],
-      "source": "https://chabot.commons.libretexts.org/book/biz-135935",
-      "license": "CC BY 4.0",
-      "license_url": "https://creativecommons.org/licenses/by/4.0/",
-      "source_type": "LibreCommons",
-      "full_text": true
-    },
-    {
-      "id": "oer-innovative-business-mindset",
-      "title": "Innovative Business Mindset",
-      "author": "WisTech Open",
-      "language": "en",
-      "category": "business",
-      "subcategories": ["entrepreneurship", "innovation", "business-planning"],
-      "source": "https://wtcs.pressbooks.pub/innovativebusinessmindset/",
-      "license": "CC BY 4.0",
-      "license_url": "https://creativecommons.org/licenses/by/4.0/",
-      "source_type": "Pressbooks",
-      "full_text": true
-    },
-    {
       "id": "oer-psychology-human-potential",
       "title": "Psychology: The Science of Human Potential",
       "author": "Jeffrey Levy",
       "language": "en",
       "category": "psychology",
-      "subcategories": ["general-psychology", "cognition", "motivation", "personality", "social-psychology"],
+      "subcategories": [
+        "general-psychology",
+        "cognition",
+        "motivation",
+        "personality",
+        "social-psychology"
+      ],
       "source": "https://open.umn.edu/opentextbooks/",
       "license": "CC BY 4.0",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "source_type": "Open Textbook Library",
       "full_text": true,
-      "note": "Resolve the exact current edition page and download URL before importing."
+      "note": "Candidate only: exact book record, full-text endpoint and edition licence must be confirmed before ingestion."
     },
     {
       "id": "oer-psychology-h5p",
@@ -84,7 +67,14 @@
       "author": "Rose M. Spielman, Kathryn Dumper, William Jenkins et al.",
       "language": "en",
       "category": "psychology",
-      "subcategories": ["general-psychology", "memory", "learning", "emotion", "personality", "social-psychology"],
+      "subcategories": [
+        "general-psychology",
+        "memory",
+        "learning",
+        "emotion",
+        "personality",
+        "social-psychology"
+      ],
       "source": "https://collection.bccampus.ca/resource/itjCGFUx/",
       "license": "CC BY 4.0 except where otherwise noted",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
@@ -98,12 +88,37 @@
       "author": "OpenStax Poland contributors",
       "language": "pl",
       "category": "marketing",
-      "subcategories": ["marketing", "consumer-behaviour", "strategy"],
-      "source": "https://openstax.org/books/marketing-podstawy/pages/przedmowa",
-      "license": "CC BY 4.0",
+      "subcategories": [
+        "marketing",
+        "consumer-behaviour",
+        "strategy"
+      ],
+      "source": "https://openstax.pl/en/book-details?book=Marketing-podstawy",
+      "license": "CC BY 4.0 on the official PDF; retain the required per-page attribution; cover/logo excluded from the licence",
       "license_url": "https://creativecommons.org/licenses/by/4.0/",
       "source_type": "OpenStax Poland",
-      "full_text": true
+      "full_text": true,
+      "note": "The official PDF states CC BY 4.0 and requires the attribution phrase on every digital page. Do not reuse the OpenStax Poland/Rice University logos or cover without permission."
+    },
+    {
+      "id": "oer-principles-marketing-en",
+      "title": "Principles of Marketing",
+      "author": "Maria Gomez Albrecht, Mark Green, Linda Hoffman et al.",
+      "language": "en",
+      "category": "marketing",
+      "subcategories": [
+        "marketing",
+        "consumer-behaviour",
+        "strategy",
+        "market-research",
+        "sales"
+      ],
+      "source": "https://assets.openstax.org/oscms-prodcms/media/documents/Principles_Marketing-WEB.pdf",
+      "license": "CC BY 4.0 (this specific PDF edition)",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "source_type": "OpenStax",
+      "full_text": true,
+      "note": "This PDF edition states CC BY 4.0. Retain the required OpenStax attribution on every page and verify the exact PDF's reuse terms before importing."
     }
   ]
 }
