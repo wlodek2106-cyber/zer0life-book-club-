@@ -1108,6 +1108,39 @@ app.post("/telegram/webhook",async(req,res)=>{
  }catch(e){console.error("Telegram webhook handler error:",e.message);res.sendStatus(500);}
 });
 
+
+app.post("/api/admin/publish-architecture-of-thinking",auth,admin,async(req,res)=>{
+ try{
+  const editions=[
+   {id:"zer0life-psychology-architecture-ru",language:"ru",title:"Психология человека — Архитектура мышления",description:"Авторская практическая книга Zer0Life о внимании, эмоциях, убеждениях, привычках, отношениях и осознанных решениях."},
+   {id:"zer0life-psychology-architecture-en",language:"en",title:"Human Psychology — The Architecture of Thinking",description:"An original practical guide to attention, emotions, beliefs, habits, relationships and deliberate decisions."},
+   {id:"zer0life-psychology-architecture-uk",language:"uk",title:"Психологія людини — Архітектура мислення",description:"Авторська практична книга про увагу, емоції, переконання, звички, стосунки та свідомі рішення."},
+   {id:"zer0life-psychology-architecture-pl",language:"pl",title:"Psychologia człowieka — Architektura myślenia",description:"Autorska książka praktyczna o uwadze, emocjach, przekonaniach, nawykach, relacjach i świadomych decyzjach."}
+  ];
+  const rawBase="https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/content/";
+  const cover="https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/psychology-architecture-of-thinking.svg";
+  const results=[];
+  for(const edition of editions){
+   const file="psychology-architecture-of-thinking-"+edition.language+".md";
+   const response=await fetch(rawBase+file,{headers:{"User-Agent":"Zer0LifeBookClub/1.0"}});
+   if(!response.ok)throw new Error("Could not load edition "+edition.language+" (HTTP "+response.status+")");
+   const markdown=await response.text();
+   const sections=markdown.split(/(?=^## )/m).map(x=>x.trim()).filter(Boolean);
+   if(sections.length<20)throw new Error("Edition "+edition.language+" is incomplete: "+sections.length+" sections detected");
+   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published)
+    VALUES($1,$2,'Zer0Life Editorial',$3,'psychology',$4,2026,350,true,$5,$6,'original',true)
+    ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,author=EXCLUDED.author,description=EXCLUDED.description,category=EXCLUDED.category,language=EXCLUDED.language,year=EXCLUDED.year,price_stars=EXCLUDED.price_stars,vip_only=EXCLUDED.vip_only,cover_url=EXCLUDED.cover_url,content_url=EXCLUDED.content_url,rights_status='original',is_published=true`,
+    [edition.id,edition.title,edition.description,edition.language,cover,rawBase+file]);
+   await pool.query("DELETE FROM book_pages WHERE book_id=$1",[edition.id]);
+   for(let i=0;i<sections.length;i++){
+    await pool.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[edition.id,i+1,sections[i]]);
+   }
+   results.push({id:edition.id,language:edition.language,pages:sections.length,status:"published"});
+  }
+  res.json({ok:true,editions:results});
+ }catch(e){console.error("Original book publishing failed:",e.message);res.status(500).json({error:e.message});}
+});
+
 app.get("/api/admin/books",auth,admin,async(req,res)=>{
  try{const r=await pool.query("SELECT * FROM books ORDER BY created_at DESC");res.json({books:r.rows});}
  catch(e){res.status(500).json({error:e.message});}
