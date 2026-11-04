@@ -30,3 +30,20 @@
 .academy-task{margin-top:12px;padding:11px;border-left:2px solid #b8955c;background:#211d16}.academy-task>b{font-size:8px;letter-spacing:1.3px;color:#d3b678}.academy-task p{font-size:10px;line-height:1.6;color:#c5bdaf;margin:5px 0 0}
 .academy-toggle{margin-top:12px;border:1px solid #6d5734;background:#282116;color:#e4c995;border-radius:5px;padding:9px 12px;font:600 10px "DM Sans";width:100%}.academy-toggle:disabled{opacity:.4}
 .academy-footnote{font-size:9px;line-height:1.6;color:#79746a;margin-top:13px}
+
+
+.growth-section{margin-top:28px}
+.growth-card{position:relative;overflow:hidden;border:1px solid #55452b;border-radius:18px;padding:20px;background:radial-gradient(ellipse at 92% 0%,#80633244,transparent 46%),linear-gradient(145deg,#211d16,#11110f 72%);box-shadow:0 14px 34px #0005}
+.growth-top{display:flex;justify-content:space-between;gap:12px;color:var(--gold2);font-size:9px;font-weight:700;letter-spacing:1.8px}
+.growth-card h3{font:600 25px/1.15 "Playfair Display",serif;margin:22px 0 10px;color:var(--text)}
+.growth-card>p{font-size:13px;line-height:1.65;color:#c9c3b8;max-width:440px}
+.growth-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px;padding-top:16px;border-top:1px solid #ffffff18}
+.growth-bottom>div{display:flex;flex-direction:column;gap:4px}.growth-bottom b{color:var(--gold2);font-size:16px}.growth-bottom small{font-size:10px;color:var(--muted)}
+.growth-bottom .gold-button{padding:11px 14px;font-size:11px;white-space:nowrap}
+.growth-bottom .gold-button:disabled{opacity:.58;cursor:default}
+.growth-note{font-size:10px!important;color:#9b9589!important;margin:14px 0 0!important}
+.growth-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.growth-stats>div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 8px;text-align:center;display:flex;flex-direction:column;gap:5px}
+.growth-stats b{font:600 23px "Playfair Display",serif;color:var(--gold2)}.growth-stats small{font-size:8px;letter-spacing:1px;color:var(--muted);font-weight:700}
+.growth-next{font-size:10px;color:var(--muted);text-align:right;margin:8px 3px 0}
+@media(max-width:390px){.growth-bottom{align-items:flex-start;flex-direction:column}.growth-bottom .gold-button{width:100%}}
