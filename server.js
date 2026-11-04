@@ -1227,11 +1227,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) {
-  await initDatabase(); await seedOriginalGrowthBooks(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await seedHumanBehaviorCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks();
-  // Wolne Lektury classics importer disabled: business and psychology are the current catalogue priority.
-  scheduleCatalogSync();
- }
+ if (pool) await initDatabase();
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
@@ -1241,6 +1237,27 @@ async function start() {
     console.log("Telegram webhook registered:", result === true ? "yes" : "no");
    } catch (e) { console.error("Telegram webhook registration failed:", e.message); }
   } else console.warn("BOT_TOKEN missing; bot webhook not registered.");
+  if (pool) {
+   setImmediate(async () => {
+    try {
+     await seedOriginalGrowthBooks();
+     await seedOriginalStarterBooks();
+     await seedInitialEnglishClassics();
+     await seedSlavicClassicsForRightsReview();
+     await seedMoreSlavicClassicsForReview();
+     await seedNextClassicsForRightsReview();
+     await seedKnowledgeLibraryCandidates();
+     await seedHumanBehaviorCandidates();
+     await importCatalogMetadata();
+     await importStandardEbooks();
+     await importCuratedWikisourceBooks();
+     scheduleCatalogSync();
+     console.log("Background catalogue import finished.");
+    } catch (error) {
+     console.error("Background catalogue import failed:", error.message);
+    }
+   });
+  }
  });
 }
 start().catch(e=>{console.error("Startup failed:",e.message);process.exit(1);});
