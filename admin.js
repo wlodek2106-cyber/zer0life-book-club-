@@ -17,8 +17,22 @@ async function api(path,opts={}){
 function safe(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function note(t){const n=el("syncMessage");if(n){n.hidden=false;n.textContent=t;}}
 function setup(){const form=el("bookForm");if(form){form.hidden=true;form.style.display="none";const h=form.previousElementSibling;if(h&&h.tagName==="H2"){h.hidden=true;h.style.display="none";}}
- const catalog=el("bookList");if(catalog&&!el("syncPanel")){const p=document.createElement("section");p.id="syncPanel";p.style.cssText="margin:20px 0;padding:16px;border:1px solid #39352e;border-radius:10px";p.innerHTML='<h2>Automatic online library</h2><p style="color:#999;font-size:12px">Search metadata in EN / RU / PL / UK. Full texts are imported only after commercial distribution rights are verified.</p><button id="discoverBtn" class="gold-button" type="button">Sync online catalog</button><button id="standardEbooksBtn" class="gold-button" type="button" style="margin:10px 0 0">Import Standard Ebooks classics</button><button id="importBtn" class="gold-button" type="button" style="margin:10px 0 0">Import approved full texts</button><div id="syncMessage" class="notice" hidden style="margin-top:10px"></div><h3>Rights review queue</h3><div id="rightsQueue"></div>';catalog.parentNode.insertBefore(p,catalog);}
+ const catalog=el("bookList");
+ if(catalog&&!el("publishOriginalBookBtn")){const b=document.createElement("button");b.id="publishOriginalBookBtn";b.type="button";b.className="gold-button";b.style.margin="10px 0";b.textContent="Publish Zer0Life: Architecture of Thinking (4 languages)";catalog.parentNode.insertBefore(b,catalog);b.addEventListener("click",publishOriginalBook);}
+if(catalog&&!el("syncPanel")){const p=document.createElement("section");p.id="syncPanel";p.style.cssText="margin:20px 0;padding:16px;border:1px solid #39352e;border-radius:10px";p.innerHTML='<h2>Automatic online library</h2><p style="color:#999;font-size:12px">Search metadata in EN / RU / PL / UK. Full texts are imported only after commercial distribution rights are verified.</p><button id="discoverBtn" class="gold-button" type="button">Sync online catalog</button><button id="standardEbooksBtn" class="gold-button" type="button" style="margin:10px 0 0">Import Standard Ebooks classics</button><button id="importBtn" class="gold-button" type="button" style="margin:10px 0 0">Import approved full texts</button><div id="syncMessage" class="notice" hidden style="margin-top:10px"></div><h3>Rights review queue</h3><div id="rightsQueue"></div>';catalog.parentNode.insertBefore(p,catalog);}
 }
+
+async function publishOriginalBook(){
+ const b=el("publishOriginalBookBtn");if(b)b.disabled=true;
+ note("Publishing the original book in RU / EN / UK / PL…");
+ try{
+  const r=await api("/api/admin/publish-architecture-of-thinking",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+  note("Published: "+r.editions.map(x=>x.language.toUpperCase()+" · "+x.pages+" pages").join(" | "));
+  await load();
+ }catch(e){note("Publishing failed: "+e.message);}
+ finally{if(b)b.disabled=false;}
+}
+
 async function load(){try{
  const [s,b,q]=await Promise.all([api("/api/admin/stats"),api("/api/admin/books"),api("/api/admin/rights-review")]);
  el("stats").innerHTML=[["Users",s.users],["Active subscriptions",s.activeVip],["Published",s.publishedBooks],["Sales",s.salesStars+" ★"]].map(([k,v])=>'<div class="category"><span class="eyebrow">'+k+'</span><b>'+v+'</b></div>').join("");
