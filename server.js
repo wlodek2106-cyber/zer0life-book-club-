@@ -618,6 +618,10 @@ async function importStandardEbooks(){
  console.log("Project Gutenberg kept as external links only:",JSON.stringify(result));return result;
 }
 async function importCuratedWikisourceBooks(){
+ // The previous Eneyida record exposed glossary fragments rather than the poem.
+ // Hide and clear it before rebuilding from the three actual poem parts.
+ await pool.query("UPDATE books SET is_published=FALSE WHERE id='uk-eneida-1798'");
+ await pool.query("DELETE FROM book_pages WHERE book_id='uk-eneida-1798'");
  const works=[
   {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i,category:"psychology",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/o-smysle-voiny.svg"},
   {id:"en-art-of-money-getting",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,lang:"en",host:"en.wikisource.org",page:"The Art of Money Getting",proof:/public domain/i,category:"money",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/art-of-money-getting.svg"},
@@ -665,15 +669,16 @@ async function importCuratedWikisourceBooks(){
    if(!rootHtml||!w.proof.test(rootHtml))throw new Error("Exact work page lacks the expected public-domain notice");
    // Wikisource often stores a book as an index linking to separate chapters.
    // Crawl only descendants of the exact work page; never publish the short index itself.
-   const queue=(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/"));
+   const queue=(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!/(словник|значен|dictionary|glossary)/i.test(t));
    const seen=new Set(),parts=[];
    while(queue.length&&seen.size<160){
     const title=queue.shift();
+    if(/(словник|значен|dictionary|glossary)/i.test(title))continue;
     if(seen.has(title))continue;
     seen.add(title);
     const page=await fetchPage(title);
     const html=String(page.text||"");
-    const childLinks=(page.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!seen.has(t));
+    const childLinks=(page.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!seen.has(t)&&!/(словник|значен|dictionary|glossary)/i.test(t));
     if(childLinks.length)queue.push(...childLinks);
     const text=decodeBookHtml(html);
     // Leaf chapter pages carry prose; navigation and index pages are not imported.
