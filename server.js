@@ -248,6 +248,35 @@ async function seedMoreSlavicClassicsForReview(){
  }
  console.log('Additional Slavic classics queued for edition and licence review:',works.length);
 }
+
+async function seedKnowledgeLibraryCandidates(){
+ const works=[
+ ["en-wealth-nations","The Wealth of Nations","Adam Smith",1790,1776,"en","money","https://en.wikisource.org/wiki/The_Wealth_of_Nations"],
+ ["en-progress-poverty","Progress and Poverty","Henry George",1897,1879,"en","money","https://en.wikisource.org/wiki/Progress_and_Poverty"],
+ ["en-principles-management","The Principles of Scientific Management","Frederick Winslow Taylor",1915,1911,"en","business","https://en.wikisource.org/wiki/The_Principles_of_Scientific_Management"],
+ ["en-principles-psychology","The Principles of Psychology","William James",1910,1890,"en","psychology","https://en.wikisource.org/wiki/The_Principles_of_Psychology"],
+ ["ru-capital","Капитал","Карл Маркс",1883,1867,"ru","money","https://ru.wikisource.org/wiki/Капитал"],
+ ["ru-wealth-nations","Исследование о природе и причинах богатства народов","Адам Смит",1790,1776,"ru","money","https://ru.wikisource.org/wiki/Исследование_о_природе_и_причинах_богатства_народов"],
+ ["ru-science-management","Принципы научного менеджмента","Фредерик Тейлор",1915,1911,"ru","business","https://ru.wikisource.org/wiki/Принципы_научного_менеджмента"],
+ ["ru-psychology","Психология","Иван Сикорский",1919,1908,"ru","psychology","https://ru.wikisource.org/wiki/Психология_(Сикорский)"],
+ ["pl-wealth-nations","Badania nad naturą i przyczynami bogactwa narodów","Adam Smith",1790,1776,"pl","money","https://pl.wikisource.org/wiki/Badania_nad_naturą_i_przyczynami_bogactwa_narodów"],
+ ["pl-principles-management","Zasady naukowego zarządzania","Frederick Winslow Taylor",1915,1911,"pl","business","https://pl.wikisource.org/wiki/Zasady_naukowego_zarządzania"],
+ ["uk-wealth-nations","Добробут націй","Адам Сміт",1790,1776,"uk","money","https://uk.wikisource.org/wiki/Добробут_націй"],
+ ["uk-capital","Капітал","Карл Маркс",1883,1867,"uk","money","https://uk.wikisource.org/wiki/Капітал"],
+ ["uk-psychology","Психологія","Іван Сікорський",1919,1908,"uk","psychology","https://uk.wikisource.org/wiki/Психологія"]
+ ];
+ let added=0;
+ for(const [id,title,author,death,year,lang,category,source] of works){
+  if(2026-death<71)continue;
+  const r=await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+   VALUES($1,$2,$3,$4,$5,$6,$7,0,FALSE,NULL,NULL,'pending',FALSE,$8,$9,NULL)
+   ON CONFLICT(id) DO NOTHING RETURNING id`,
+   [id,title,author,"Full-text candidate. Exact language edition, translation and source licence require verification before publication.",category,lang,year,source,"Pending rights review: author life+70 appears expired; exact edition and transcription not confirmed"]);
+  added+=r.rowCount;
+ }
+ console.log("Knowledge category candidates queued:",added);
+}
+
 async function seedNextClassicsForRightsReview(){
  const works=[
   {id:'en-moby-dick',title:'Moby-Dick; or, The Whale',author:'Herman Melville',death:1891,year:1851,lang:'en'},
@@ -858,7 +887,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await seedKnowledgeLibraryCandidates(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
