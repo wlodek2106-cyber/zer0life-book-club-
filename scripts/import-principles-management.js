@@ -7,10 +7,10 @@ const BOOK = {
   authors: "Lumen Learning",
   category: "business",
   language: "en",
-  index: "https://biz.libretexts.org/Bookshelves/Business/Principles of Management/Principles of Management_(OpenStax)",
+  index: "https://biz.libretexts.org/Courses/Lumen_Learning/Principles_of_Management_%28Lumen%29",
   license: "Creative Commons Attribution 4.0 International (CC BY 4.0)",
   licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
-  attribution: "Principles of Management by Michael Laverty and Chris Littel et al., OpenStax. Available for free at openstax.org. Licensed under CC BY 4.0."
+  attribution: "Principles of Management (Lumen), authored and curated by Lumen Learning. Source: Business LibreTexts. Licensed under CC BY 4.0."
 };
 
 function decodeHtml(s) {
@@ -95,13 +95,13 @@ module.exports = async function importPrinciplesManagement(pool) {
   if (chunks.length < 15 || totalChars < 50000) {
     throw new Error("Full-text validation failed: " + chunks.length + " pages, " + totalChars + " source characters");
   }
-  const coverUrl = "/covers/principles-management-lumen-openstax.svg";
+  const coverUrl = null;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(`INSERT INTO books
       (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url,full_text_source_url)
-      VALUES($1,$2,$3,$4,$5,$6,2020,0,FALSE,$7,$8,'licensed',FALSE,$9,$10,$11,$9)
+      VALUES($1,$2,$3,$4,$5,$6,2023,0,FALSE,$7,$8,'licensed',FALSE,$9,$10,$11,$9)
       ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,author=EXCLUDED.author,description=EXCLUDED.description,
       category=EXCLUDED.category,language=EXCLUDED.language,cover_url=EXCLUDED.cover_url,content_url=EXCLUDED.content_url,
       source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url,
