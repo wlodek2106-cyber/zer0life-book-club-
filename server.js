@@ -621,7 +621,6 @@ async function importCuratedWikisourceBooks(){
  const works=[
   {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i,category:"psychology",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/o-smysle-voiny.svg"},
   {id:"en-art-of-money-getting",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,lang:"en",host:"en.wikisource.org",page:"The Art of Money Getting",proof:/public domain/i,category:"money",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/art-of-money-getting.svg"},
-
   {id:"ru-crime-and-punishment",title:"Преступление и наказание",author:"Фёдор Михайлович Достоевский",death:1881,year:1866,lang:"ru",host:"ru.wikisource.org",page:"Преступление и наказание (Достоевский)",proof:/общественное достояние/i,category:"psychology",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/crime-and-punishment-ru.svg"},
   {id:"pl-pan-tadeusz-1834",title:"Pan Tadeusz (wyd. 1834)",author:"Adam Mickiewicz",death:1855,year:1834,lang:"pl",host:"pl.wikisource.org",page:"Pan Tadeusz (wyd. 1834)",proof:/public domain/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/pan-tadeusz-pl.svg"},
   {id:"uk-eneida-1798",title:"Енеїда",author:"Іван Котляревський",death:1838,year:1798,lang:"uk",host:"uk.wikisource.org",page:"Енеїда (1798)",proof:/суспільному надбанні в усьому світі/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/eneida.svg"}
@@ -631,23 +630,46 @@ async function importCuratedWikisourceBooks(){
   try{
    if(2026-w.death<71)throw new Error("Author's life+70 term has not expired for Poland");
    const source="https://"+w.host+"/wiki/"+encodeURIComponent(w.page.replace(/ /g,"_"));
-   const api="https://"+w.host+"/w/api.php?action=parse&prop=text&format=json&formatversion=2&page="+encodeURIComponent(w.page);
-   const response=await fetch(api,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
-   if(!response.ok)throw new Error("Wikisource API HTTP "+response.status);
-   const data=await response.json();
-   const html=String(data.parse?.text||"");
-   if(!html||!w.proof.test(html))throw new Error("Page does not contain the expected public-domain notice; manual review required");
-   const body=decodeBookHtml(html);
-   if(body.length<12000)throw new Error("Source page is not a complete book-length text");
+   const apiBase="https://"+w.host+"/w/api.php?action=parse&prop=text%7Clinks&format=json&formatversion=2&page=";
+   const fetchPage=async title=>{
+    const response=await fetch(apiBase+encodeURIComponent(title),{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
+    if(!response.ok)throw new Error("Wikisource API HTTP "+response.status+" for "+title);
+    const data=await response.json();
+    if(data.error)throw new Error(data.error.info||"Wikisource page unavailable");
+    return data.parse||{};
+   };
+   const root=await fetchPage(w.page);
+   const rootHtml=String(root.text||"");
+   if(!rootHtml||!w.proof.test(rootHtml))throw new Error("Exact work page lacks the expected public-domain notice");
+   // Wikisource often stores a book as an index linking to separate chapters.
+   // Crawl only descendants of the exact work page; never publish the short index itself.
+   const queue=(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/"));
+   const seen=new Set(),parts=[];
+   while(queue.length&&seen.size<160){
+    const title=queue.shift();
+    if(seen.has(title))continue;
+    seen.add(title);
+    const page=await fetchPage(title);
+    const html=String(page.text||"");
+    const childLinks=(page.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!seen.has(t));
+    if(childLinks.length)queue.push(...childLinks);
+    const text=decodeBookHtml(html);
+    // Leaf chapter pages carry prose; navigation and index pages are not imported.
+    if(!childLinks.length&&text.length>500)parts.push({title,text});
+   }
+   if(!parts.length)throw new Error("No full chapter pages found under the book index");
+   parts.sort((a,b)=>a.title.localeCompare(b.title,"ru"));
+   const body=parts.map(p=>p.text).join("\n\n");
+   if(body.length<12000)throw new Error("Collected chapter text is too short ("+body.length+" chars); refusing partial publication");
    const chunks=[];let rest=body;
    while(rest.length){let cut=Math.min(2800,rest.length);if(cut<rest.length){const p=rest.lastIndexOf(" ",cut);if(p>cut*.65)cut=p;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
-   if(chunks.length<5)throw new Error("Insufficient full-text pages");
-   const evidence="Wikisource page explicitly marks this exact work as public domain; author died in "+w.death+" and Poland applies life+70. Source: "+source;
+   if(chunks.length<5)throw new Error("Insufficient full-text pages after chapter collection");
+   const evidence="Wikisource exact work page marks this work public domain; author died in "+w.death+" and Poland applies life+70. Chapter pages collected from: "+source;
    await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
     VALUES($1,$2,$3,$4,$5,$6,$7,0,FALSE,$8,$9,'public_domain',FALSE,$9,$10,$9)
     ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,cover_url=COALESCE(EXCLUDED.cover_url,books.cover_url),source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
     WHERE books.rights_status IN ('pending','public_domain')`,
-    [w.id,w.title,w.author,"Complete original-language text from Wikisource. Public-domain notice checked on the exact source page. Attribution and source link retained: "+source,w.category||"personal",w.lang,w.year,w.cover||null,source,"Public domain; exact page notice verified; author life+70 term expired in Poland"]);
+    [w.id,w.title,w.author,"Complete chapter-by-chapter text from Wikisource. Public-domain notice checked on exact work page. Source attribution retained: "+source,w.category,w.lang,w.year,w.cover,source,"Public domain; exact page notice verified; author life+70 term expired in Poland"]);
    const client=await pool.connect();
    try{
     await client.query("BEGIN");
@@ -658,10 +680,10 @@ async function importCuratedWikisourceBooks(){
     await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=$2 WHERE id=$1",[w.id,source]);
     await client.query("COMMIT");
    }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
-   results.push({id:w.id,title:w.title,language:w.lang,status:"published",pages:chunks.length,source});
+   results.push({id:w.id,title:w.title,language:w.lang,status:"published",pages:chunks.length,chapters:parts.length,characters:body.length,source});
   }catch(e){console.error("Wikisource import skipped:",w.id,e.message);results.push({id:w.id,title:w.title,language:w.lang,status:"skipped",reason:e.message});}
  }
- console.log("Curated Wikisource import:",JSON.stringify(results));
+ console.log("Curated Wikisource chapter import:",JSON.stringify(results));
  return results;
 }
 
