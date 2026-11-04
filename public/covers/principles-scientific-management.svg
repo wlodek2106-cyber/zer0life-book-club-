@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" width="600" height="900">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101316"/><stop offset="1" stop-color="#252a2d"/></linearGradient><linearGradient id="gold"><stop stop-color="#b88a42"/><stop offset="1" stop-color="#f0d18a"/></linearGradient></defs>
+<rect width="600" height="900" fill="url(#bg)"/><rect x="38" y="38" width="524" height="824" fill="none" stroke="url(#gold)" stroke-width="3"/>
+<path d="M115 230h370M115 245h260" stroke="#b88a42" stroke-width="3" opacity=".7"/>
+<text x="300" y="330" fill="#e6c17a" font-family="Georgia,serif" font-size="26" text-anchor="middle" letter-spacing="7">ZER0LIFE BOOK CLUB</text>
+<text x="300" y="435" fill="#f6f1e7" font-family="Georgia,serif" font-size="48" text-anchor="middle">THE PRINCIPLES</text>
+<text x="300" y="495" fill="#f6f1e7" font-family="Georgia,serif" font-size="48" text-anchor="middle">OF SCIENTIFIC</text>
+<text x="300" y="555" fill="#f6f1e7" font-family="Georgia,serif" font-size="48" text-anchor="middle">MANAGEMENT</text>
+<path d="M175 625h250" stroke="url(#gold)" stroke-width="2"/>
+<text x="300" y="690" fill="#d6c7a8" font-family="Georgia,serif" font-size="26" text-anchor="middle">FREDERICK WINSLOW TAYLOR</text>
+<text x="300" y="790" fill="#a88a58" font-family="Arial,sans-serif" font-size="20" text-anchor="middle" letter-spacing="5">1911 · COMPLETE EDITION</text>
+</svg>
