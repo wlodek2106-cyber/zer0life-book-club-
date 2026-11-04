@@ -159,6 +159,15 @@ async function initDatabase() {
    CHECK (status IN ('planned','reading','completed'))
   );
   CREATE INDEX IF NOT EXISTS reading_progress_user_status_idx ON reading_progress(telegram_id,status);
+  CREATE TABLE IF NOT EXISTS academy_progress (
+   telegram_id BIGINT REFERENCES users(telegram_id) ON DELETE CASCADE,
+   month_number INTEGER NOT NULL CHECK (month_number BETWEEN 1 AND 12),
+   completed BOOLEAN NOT NULL DEFAULT FALSE,
+   completed_at TIMESTAMPTZ,
+   updated_at TIMESTAMPTZ DEFAULT NOW(),
+   PRIMARY KEY (telegram_id, month_number)
+  );
+  CREATE INDEX IF NOT EXISTS academy_progress_user_idx ON academy_progress(telegram_id,completed);
   CREATE TABLE IF NOT EXISTS book_pages (
    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
    page_number INTEGER NOT NULL CHECK (page_number > 0),
@@ -630,6 +639,27 @@ app.post("/api/favorites/:bookId",auth,async(req,res)=>{
  try{await ensureUser(req.user);await pool.query("INSERT INTO favorites(telegram_id,book_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.user.id,req.params.bookId]);res.json({ok:true});}
  catch(e){res.status(500).json({error:e.message});}
 });
+app.get("/api/academy/progress",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const r=await pool.query("SELECT month_number,completed,completed_at,updated_at FROM academy_progress WHERE telegram_id=$1 ORDER BY month_number",[req.user.id]);
+  res.json({progress:r.rows});
+ }catch(e){res.status(503).json({error:e.message});}
+});
+app.post("/api/academy/progress/:month",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const month=Number(req.params.month);
+  if(!Number.isInteger(month)||month<1||month>12)return res.status(400).json({error:"Month must be between 1 and 12."});
+  const completed=req.body.completed===true;
+  const r=await pool.query(`INSERT INTO academy_progress(telegram_id,month_number,completed,completed_at,updated_at)
+   VALUES($1,$2,$3,CASE WHEN $3 THEN NOW() ELSE NULL END,NOW())
+   ON CONFLICT(telegram_id,month_number) DO UPDATE SET completed=EXCLUDED.completed,completed_at=CASE WHEN EXCLUDED.completed THEN COALESCE(academy_progress.completed_at,NOW()) ELSE NULL END,updated_at=NOW()
+   RETURNING month_number,completed,completed_at,updated_at`,[req.user.id,month,completed]);
+  res.json({ok:true,progress:r.rows[0]});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+
 app.get("/api/reading",auth,async(req,res)=>{
  try{await ensureUser(req.user);const r=await pool.query("SELECT book_id,current_page,total_pages,status,updated_at,completed_at FROM reading_progress WHERE telegram_id=$1 ORDER BY updated_at DESC",[req.user.id]);res.json({reading:r.rows});}
  catch(e){res.status(503).json({error:e.message});}
