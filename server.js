@@ -59,7 +59,12 @@ const categories = [
  ["psychology","Психология","Psychology","Psychologia","◉"],["psychosomatics","Психосоматика","Psychosomatics","Psychosomatyka","⌁"],
  ["mindfulness","Осознанность","Mindfulness","Uważność","☼"],["relationships","Любовь и отношения","Love & relationships","Miłość i relacje","♡"],
  ["leadership","CEO и управление","CEO & leadership","CEO i zarządzanie","♜"],["money","Деньги и инвестиции","Money & investing","Finanse i inwestycje","◇"],
- ["personal","Саморазвитие","Personal growth","Rozwój osobisty","↑"]
+ ["personal","Саморазвитие","Personal growth","Rozwój osobisty","↑"],
+ ["marketing","Маркетинг","Marketing","Marketing","✧"],
+ ["rhetoric","Риторика и красноречие","Rhetoric & eloquence","Retoryka i elokwencja","❝"],
+ ["critical-thinking","Критическое мышление","Critical thinking","Myślenie krytyczne","◇"],
+ ["communication","Коммуникация","Communication","Komunikacja","↔"],
+ ["intelligence","Интеллект и память","Intelligence & memory","Inteligencja i pamięć","⌘"]
 ];
 
 function validateInitData(initData) {
@@ -263,7 +268,23 @@ async function seedKnowledgeLibraryCandidates(){
  ["pl-principles-management","Zasady naukowego zarządzania","Frederick Winslow Taylor",1915,1911,"pl","business","https://pl.wikisource.org/wiki/Zasady_naukowego_zarządzania"],
  ["uk-wealth-nations","Добробут націй","Адам Сміт",1790,1776,"uk","money","https://uk.wikisource.org/wiki/Добробут_націй"],
  ["uk-capital","Капітал","Карл Маркс",1883,1867,"uk","money","https://uk.wikisource.org/wiki/Капітал"],
- ["uk-psychology","Психологія","Іван Сікорський",1919,1908,"uk","psychology","https://uk.wikisource.org/wiki/Психологія"]
+ ["uk-psychology","Психологія","Іван Сікорський",1919,1908,"uk","psychology","https://uk.wikisource.org/wiki/Психологія"],
+ // Classic, pre-1955 works useful for rhetoric, reasoning, leadership and marketing history.
+ ["en-rhetoric-aristotle","Rhetoric","Aristotle",-322,-330,"en","rhetoric","https://en.wikisource.org/wiki/Rhetoric_(Aristotle)"],
+ ["en-de-oratore","De Oratore","Cicero",-43,-55,"en","rhetoric","https://en.wikisource.org/wiki/De_Oratore"],
+ ["en-art-of-being-right","The Art of Being Right","Arthur Schopenhauer",1860,1831,"en","critical-thinking","https://en.wikisource.org/wiki/The_Art_of_Being_Right"],
+ ["en-elements-style","The Elements of Style","William Strunk Jr.",1946,1918,"en","communication","https://en.wikisource.org/wiki/The_Elements_of_Style"],
+ ["en-scientific-advertising","Scientific Advertising","Claude C. Hopkins",1932,1923,"en","marketing","https://en.wikisource.org/wiki/Scientific_Advertising"],
+ ["en-principles-psychology-vol1","The Principles of Psychology, Vol. I","William James",1910,1890,"en","psychology","https://en.wikisource.org/wiki/The_Principles_of_Psychology"],
+ ["ru-rhetoric-aristotle","Риторика","Аристотель",-322,-330,"ru","rhetoric","https://ru.wikisource.org/wiki/Риторика_(Аристотель)"],
+ ["ru-art-of-being-right","Эристика, или Искусство побеждать в спорах","Артур Шопенгауэр",1860,1831,"ru","critical-thinking","https://ru.wikisource.org/wiki/Эристика"],
+ ["ru-scientific-advertising","Научная реклама","Клод Хопкинс",1932,1923,"ru","marketing","https://ru.wikisource.org/wiki/Научная_реклама"],
+ ["pl-rhetoric-aristotle","Retoryka","Arystoteles",-322,-330,"pl","rhetoric","https://pl.wikisource.org/wiki/Retoryka"],
+ ["pl-de-oratore","O mówcy","Cyceron",-43,-55,"pl","rhetoric","https://pl.wikisource.org/wiki/O_mówcy"],
+ ["pl-art-of-being-right","Erystyka, czyli sztuka prowadzenia sporów","Arthur Schopenhauer",1860,1831,"pl","critical-thinking","https://pl.wikisource.org/wiki/Erystyka"],
+ ["uk-rhetoric-aristotle","Риторика","Арістотель",-322,-330,"uk","rhetoric","https://uk.wikisource.org/wiki/Риторика"],
+ ["uk-de-oratore","Про оратора","Цицерон",-43,-55,"uk","rhetoric","https://uk.wikisource.org/wiki/Про_оратора"],
+ ["uk-art-of-being-right","Еристика, або Мистецтво перемагати в суперечках","Артур Шопенгауер",1860,1831,"uk","critical-thinking","https://uk.wikisource.org/wiki/Еристика"]
  ];
  let added=0;
  for(const [id,title,author,death,year,lang,category,source] of works){
