@@ -2,7 +2,7 @@
 // Usage is through server startup: require("./scripts/import-wolne-lektury")(pool)
 module.exports = async function importWolneLektury(pool) {
   const slug = "pan-tadeusz";
-  const apiUrl = "https://wolnelektury.pl/api/books/" + slug + "/?format=json";
+  const apiUrl = "https://eink.wolnelektury.pl/api/books/" + slug + "/?format=json";
   const headers = {
     Accept: "application/json",
     "User-Agent": "Zer0LifeBookClub/1.0 (Wolne Lektury attribution import)"
@@ -10,14 +10,14 @@ module.exports = async function importWolneLektury(pool) {
   const apiResponse = await fetch(apiUrl, { headers });
   if (!apiResponse.ok) throw new Error("Wolne Lektury API HTTP " + apiResponse.status);
   const payload = await apiResponse.json();
-  const book = payload.book || payload;
+  const book = payload.book || payload.result || payload;
   const title = book.title;
   const author = (book.author_names || []).join(", ");
-  const sourceUrl = book.url;
+  const sourceUrl = book.url || book.source_url || ("https://wolnelektury.pl/katalog/lektura/" + slug + "/");
   const textUrl = book.txt_url;
   const coverUrl = book.cover_url;
-  if (!title || !author || !sourceUrl || !textUrl || !coverUrl) {
-    throw new Error("Wolne Lektury detail response lacks required book fields");
+  if (!title || !author || !textUrl || !coverUrl) {
+    throw new Error("Wolne Lektury detail response incomplete; root keys=" + Object.keys(payload).join(",") + "; book keys=" + Object.keys(book).join(",") + "; title=" + !!title + "; author=" + !!author + "; txt=" + !!textUrl + "; cover=" + !!coverUrl);
   }
 
   const pageResponse = await fetch(sourceUrl, { headers });
