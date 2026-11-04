@@ -47,3 +47,23 @@
 .growth-stats b{font:600 23px "Playfair Display",serif;color:var(--gold2)}.growth-stats small{font-size:8px;letter-spacing:1px;color:var(--muted);font-weight:700}
 .growth-next{font-size:10px;color:var(--muted);text-align:right;margin:8px 3px 0}
 @media(max-width:390px){.growth-bottom{align-items:flex-start;flex-direction:column}.growth-bottom .gold-button{width:100%}}
+
+
+.programs-section{margin-top:28px}
+.program-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 12px}
+.program-switch button{border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:10px;padding:12px 8px;font-size:11px;font-weight:700}
+.program-switch button.active{border-color:var(--gold);background:#c8a76a18;color:var(--gold2)}
+.program-progress{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:13px 14px;margin-bottom:10px}
+.program-progress>div:first-child{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.program-progress b{font:600 20px "Playfair Display",serif;color:var(--gold2)}
+.program-progress small{font-size:9px;letter-spacing:1px;color:var(--muted)}
+.program-track{height:5px;background:#ffffff12;border-radius:10px;overflow:hidden}
+.program-track span{display:block;width:0;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:10px;transition:width .25s}
+.program-day{border:1px solid #51432d;background:linear-gradient(145deg,#1b1915,#111);border-radius:16px;padding:18px}
+.program-day-top{display:flex;justify-content:space-between;color:var(--gold2);font-size:9px;font-weight:700;letter-spacing:1.5px}
+.program-day h3{font:600 23px/1.2 "Playfair Display",serif;margin:18px 0 8px}
+.program-day>p{font-size:13px;line-height:1.65;color:#c8c2b7;margin:0 0 16px}
+.program-day textarea{width:100%;min-height:62px;resize:vertical;background:#0c0c0b;border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--text);font:12px "DM Sans",sans-serif;margin-bottom:12px;outline:none}
+.program-day textarea:focus{border-color:var(--gold)}
+.program-day .gold-button:disabled{opacity:.55}
+.program-login{display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:12px}
