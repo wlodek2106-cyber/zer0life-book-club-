@@ -168,6 +168,15 @@ async function initDatabase() {
    PRIMARY KEY (telegram_id, month_number)
   );
   CREATE INDEX IF NOT EXISTS academy_progress_user_idx ON academy_progress(telegram_id,completed);
+  CREATE TABLE IF NOT EXISTS daily_growth_completions (
+   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+   challenge_date DATE NOT NULL,
+   challenge_id TEXT NOT NULL,
+   xp_earned INTEGER NOT NULL DEFAULT 20 CHECK (xp_earned >= 0),
+   completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+   PRIMARY KEY (telegram_id, challenge_date)
+  );
+  CREATE INDEX IF NOT EXISTS daily_growth_user_date_idx ON daily_growth_completions(telegram_id,challenge_date DESC);
   CREATE TABLE IF NOT EXISTS book_pages (
    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
    page_number INTEGER NOT NULL CHECK (page_number > 0),
@@ -724,6 +733,60 @@ app.post("/api/academy/progress/:month",auth,async(req,res)=>{
    ON CONFLICT(telegram_id,month_number) DO UPDATE SET completed=EXCLUDED.completed,completed_at=CASE WHEN EXCLUDED.completed THEN COALESCE(academy_progress.completed_at,NOW()) ELSE NULL END,updated_at=NOW()
    RETURNING month_number,completed,completed_at,updated_at`,[req.user.id,month,completed]);
   res.json({ok:true,progress:r.rows[0]});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+
+const DAILY_GROWTH_CHALLENGES = [
+ {id:"observe",category:"Awareness",title:"Факт или интерпретация?",minutes:5,xp:20,task:"Запиши один сегодняшний эпизод в двух колонках: что произошло объективно и какую историю ты себе рассказал. Найди ещё одно возможное объяснение.",reflection:"Что изменилось, когда ты отделил факт от предположения?"},
+ {id:"read",category:"Learning",title:"10 минут осознанного чтения",minutes:10,xp:20,task:"Прочитай 5–10 страниц выбранной книги. Выпиши одну мысль своими словами и один вопрос, который она у тебя вызвала.",reflection:"Какую одну идею ты попробуешь применить?"},
+ {id:"listen",category:"Relationships",title:"Слушай, чтобы понять",minutes:5,xp:20,task:"В разговоре сегодня не перебивай. Кратко перескажи собеседнику его мысль и спроси, правильно ли ты понял.",reflection:"Что ты заметил, когда сначала слушал, а потом отвечал?"},
+ {id:"boundary",category:"Self-respect",title:"Одна здоровая граница",minutes:5,xp:20,task:"Определи одну ситуацию, где тебе нужно яснее обозначить свои возможности. Сформулируй уважительную фразу: «Я могу…, но не могу…».",reflection:"Какую границу ты хочешь поддерживать последовательно?"},
+ {id:"money",category:"Financial literacy",title:"Проверь один денежный выбор",minutes:7,xp:20,task:"Посмотри на одну недавнюю покупку или расход. Запиши: какую потребность он закрывал, был ли выбор осознанным и что можно улучшить в следующий раз.",reflection:"Какой небольшой финансовый вывод ты сделал?"},
+ {id:"focus",category:"Discipline",title:"15 минут одного дела",minutes:15,xp:20,task:"Выбери важную задачу, убери уведомления и поработай над ней 15 минут без переключений. Начни с самого маленького шага.",reflection:"Что помогло тебе удержать внимание?"},
+ {id:"gratitude",category:"Well-being",title:"Заметь три опоры",minutes:4,xp:20,task:"Запиши три конкретные вещи, которые сегодня поддержали тебя. Одна из них может быть твоим собственным действием.",reflection:"Что ты обычно принимаешь как должное?"},
+ {id:"emotion",category:"Emotional intelligence",title:"Назови эмоцию точнее",minutes:5,xp:20,task:"Остановись и назови эмоцию точнее, чем «нормально» или «плохо». Оцени её интенсивность от 1 до 10 и подумай, какая потребность за ней стоит.",reflection:"Какая потребность могла стоять за этой эмоцией?"},
+ {id:"goal",category:"Growth",title:"Один шаг к большой цели",minutes:8,xp:20,task:"Выбери одну долгосрочную цель и запиши действие на 10 минут, которое приблизит тебя к ней сегодня. Сделай его или назначь конкретное время.",reflection:"Какой следующий небольшой шаг станет логичным продолжением?"},
+ {id:"kindness",category:"Relationships",title:"Маленький акт доброты",minutes:5,xp:20,task:"Сделай для кого-то небольшой полезный жест без ожидания награды: помоги, поблагодари или удели человеку внимание.",reflection:"Как этот поступок повлиял на ваше общение?"},
+ {id:"body",category:"Well-being",title:"Пауза для тела",minutes:5,xp:20,task:"Сделай спокойную паузу: отложи экран, расслабь плечи, подыши комфортно и оцени, что сейчас нужно твоему телу. Не делай ничего через боль.",reflection:"Что ты заметил в своём состоянии?"},
+ {id:"decision",category:"Critical thinking",title:"Проверь своё убеждение",minutes:7,xp:20,task:"Выбери одно мнение, в котором сегодня был уверен. Найди сильный аргумент против него и подумай, какие данные могли бы изменить твою позицию.",reflection:"Стало ли твоё мнение точнее или гибче?"},
+ {id:"create",category:"Creativity",title:"Создай, а не только потребляй",minutes:10,xp:20,task:"Создай небольшой результат: абзац, идею, эскиз, заметку или план. Не оценивай качество — закончи маленькую версию.",reflection:"Что ты создал и что можно развить дальше?"},
+ {id:"review",category:"Reflection",title:"Вечерний разбор без осуждения",minutes:5,xp:20,task:"Ответь письменно: что сегодня получилось, чему научился и что завтра сделаешь чуть иначе. Не превращай разбор в самокритику.",reflection:"Какой один вывод ты заберёшь в завтра?"}
+];
+function getDailyGrowthChallenge(dateString){
+ const d=new Date(dateString+"T00:00:00Z");
+ const day=Math.floor(d.getTime()/86400000);
+ return DAILY_GROWTH_CHALLENGES[((day%DAILY_GROWTH_CHALLENGES.length)+DAILY_GROWTH_CHALLENGES.length)%DAILY_GROWTH_CHALLENGES.length];
+}
+function growthStreak(rows,today){
+ const completed=new Set(rows.map(x=>String(x.challenge_date).slice(0,10)));
+ let cursor=new Date(today+"T00:00:00Z");
+ if(!completed.has(today))cursor.setUTCDate(cursor.getUTCDate()-1);
+ let streak=0;
+ while(completed.has(cursor.toISOString().slice(0,10))){streak++;cursor.setUTCDate(cursor.getUTCDate()-1);}
+ return streak;
+}
+app.get("/api/growth/today",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const today=(await pool.query("SELECT CURRENT_DATE::text AS today")).rows[0].today;
+  const challenge=getDailyGrowthChallenge(today);
+  const r=await pool.query("SELECT challenge_date::text,challenge_id,xp_earned,completed_at FROM daily_growth_completions WHERE telegram_id=$1 ORDER BY challenge_date DESC LIMIT 45",[req.user.id]);
+  const doneToday=r.rows.some(x=>x.challenge_date===today);
+  const totalXp=r.rows.reduce((sum,x)=>sum+Number(x.xp_earned||0),0);
+  const all=await pool.query("SELECT COALESCE(SUM(xp_earned),0)::int AS xp,COUNT(*)::int AS completed FROM daily_growth_completions WHERE telegram_id=$1",[req.user.id]);
+  const xp=Number(all.rows[0].xp||0);
+  res.json({date:today,challenge,doneToday,streak:growthStreak(r.rows,today),xp,level:Math.floor(xp/100)+1,completedDays:Number(all.rows[0].completed),nextLevelXp:100-(xp%100),recent:r.rows.slice(0,7)});
+ }catch(e){res.status(503).json({error:e.message});}
+});
+app.post("/api/growth/complete",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const today=(await pool.query("SELECT CURRENT_DATE::text AS today")).rows[0].today;
+  const challenge=getDailyGrowthChallenge(today);
+  if(req.body.challengeId!==challenge.id)return res.status(400).json({error:"This is not today's challenge. Refresh and try again."});
+  const r=await pool.query("INSERT INTO daily_growth_completions(telegram_id,challenge_date,challenge_id,xp_earned) VALUES($1,CURRENT_DATE,$2,$3) ON CONFLICT(telegram_id,challenge_date) DO NOTHING RETURNING challenge_date::text,challenge_id,xp_earned,completed_at",[req.user.id,challenge.id,challenge.xp]);
+  const stats=await pool.query("SELECT COALESCE(SUM(xp_earned),0)::int AS xp,COUNT(*)::int AS completed FROM daily_growth_completions WHERE telegram_id=$1",[req.user.id]);
+  res.json({ok:true,alreadyCompleted:r.rowCount===0,awardedXp:r.rowCount?challenge.xp:0,xp:Number(stats.rows[0].xp),level:Math.floor(Number(stats.rows[0].xp)/100)+1,completedDays:Number(stats.rows[0].completed)});
  }catch(e){res.status(500).json({error:e.message});}
 });
 
