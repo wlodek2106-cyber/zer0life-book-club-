@@ -15,12 +15,4 @@
 .reader-controls button:disabled{opacity:.3}
 .reader-controls span{font-size:9px;color:#aaa}
 
-.reader-page{touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab;position:relative}
-.reader-page:after{content:'← SWIPE TO TURN →';display:block;text-align:center;margin-top:26px;padding-top:12px;border-top:1px solid #d6cbb8;color:#9a896d;font:700 8px 'DM Sans',sans-serif;letter-spacing:2px}
 .reader-controls button{min-width:84px}
-
-/* Visible 3D page-turn animation */
-.reader-page.page-turn-next{transform-origin:left center;animation:readerFlipNext .62s cubic-bezier(.2,.7,.25,1) both;backface-visibility:hidden}
-.reader-page.page-turn-prev{transform-origin:right center;animation:readerFlipPrev .62s cubic-bezier(.2,.7,.25,1) both;backface-visibility:hidden}
-@keyframes readerFlipNext{0%{opacity:.7;transform:perspective(1100px) rotateY(-72deg) translateX(18px);filter:brightness(.72)}55%{opacity:1;transform:perspective(1100px) rotateY(12deg) translateX(-3px);filter:brightness(1.05)}100%{transform:perspective(1100px) rotateY(0) translateX(0);filter:brightness(1)}}
-@keyframes readerFlipPrev{0%{opacity:.7;transform:perspective(1100px) rotateY(72deg) translateX(-18px);filter:brightness(.72)}55%{opacity:1;transform:perspective(1100px) rotateY(-12deg) translateX(3px);filter:brightness(1.05)}100%{transform:perspective(1100px) rotateY(0) translateX(0);filter:brightness(1)}}
