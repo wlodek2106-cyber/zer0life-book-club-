@@ -16,3 +16,17 @@
 .reader-controls span{font-size:9px;color:#aaa}
 
 .reader-controls button{min-width:84px}
+
+/* Zer0Life Intellectual Growth Academy */
+.academy-section{padding-top:10px}.academy-intro{font-size:12px;line-height:1.7;color:#a9a49a;margin:8px 0 18px;max-width:420px}
+.academy-overview{display:flex;align-items:center;gap:18px;padding:18px;border:1px solid #4c402e;border-radius:12px;background:radial-gradient(ellipse at 15% 20%,#80633830,transparent 65%),#14120f;margin-bottom:18px}
+.academy-progress-ring{--progress:0%;width:92px;height:92px;flex:0 0 92px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#d2b477 var(--progress),#393126 0);position:relative}
+.academy-progress-ring:before{content:"";position:absolute;inset:7px;border-radius:50%;background:#14120f}.academy-progress-ring>div{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px}
+.academy-progress-ring b{font:600 24px "Playfair Display";color:#e4c995}.academy-progress-ring small{font-size:7px;letter-spacing:1.2px;color:#999}
+.academy-stats{display:flex;flex-direction:column;gap:5px;min-width:0}.academy-stats>b{font:600 16px "Playfair Display";color:#f0e8d8}.academy-stats>small{font-size:10px;line-height:1.5;color:#aaa}.academy-stats>span{font-size:9px;color:#c6a66c}
+.academy-list{display:grid;gap:11px}.academy-month{padding:16px;border:1px solid #302b22;border-radius:10px;background:linear-gradient(145deg,#171614,#10100f)}.academy-month.is-complete{border-color:#927444;background:linear-gradient(145deg,#211c13,#11100e)}
+.academy-month-top{display:flex;justify-content:space-between;align-items:center;font-size:8px;letter-spacing:1.4px;color:#b99b65;font-weight:700}.academy-state{color:#d8bd86}
+.academy-month h3{font:600 17px "Playfair Display";margin:10px 0 6px;color:#f0e8d8}.academy-month>p{font-size:10px;line-height:1.65;color:#aaa49a;margin:0}
+.academy-task{margin-top:12px;padding:11px;border-left:2px solid #b8955c;background:#211d16}.academy-task>b{font-size:8px;letter-spacing:1.3px;color:#d3b678}.academy-task p{font-size:10px;line-height:1.6;color:#c5bdaf;margin:5px 0 0}
+.academy-toggle{margin-top:12px;border:1px solid #6d5734;background:#282116;color:#e4c995;border-radius:5px;padding:9px 12px;font:600 10px "DM Sans";width:100%}.academy-toggle:disabled{opacity:.4}
+.academy-footnote{font-size:9px;line-height:1.6;color:#79746a;margin-top:13px}
