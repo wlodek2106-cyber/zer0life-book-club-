@@ -2,7 +2,7 @@
 // Usage is through server startup: require("./scripts/import-wolne-lektury")(pool)
 module.exports = async function importWolneLektury(pool) {
   const slug = "pan-tadeusz";
-  const apiUrl = "https://wolnelektury.pl/api/books/" + slug + "/";
+  const apiUrl = "https://wolnelektury.pl/api/books/" + slug + "/?format=json";
   const headers = {
     Accept: "application/json",
     "User-Agent": "Zer0LifeBookClub/1.0 (Wolne Lektury attribution import)"
@@ -18,6 +18,13 @@ module.exports = async function importWolneLektury(pool) {
   const coverUrl = book.cover_url;
   if (!title || !author || !sourceUrl || !textUrl || !coverUrl) {
     throw new Error("Wolne Lektury detail response lacks required book fields");
+  }
+
+  const pageResponse = await fetch(sourceUrl, { headers });
+  if (!pageResponse.ok) throw new Error("Wolne Lektury source page HTTP " + pageResponse.status);
+  const sourceHtml = await pageResponse.text();
+  if (!/Ten utwór jest w domenie publicznej/i.test(sourceHtml)) {
+    throw new Error("Source page does not explicitly mark this work as public domain");
   }
 
   const textResponse = await fetch(textUrl, { headers });
@@ -45,25 +52,25 @@ module.exports = async function importWolneLektury(pool) {
   if (chunks.length < 5) throw new Error("Not enough full-text pages");
 
   const id = "pl-wolne-" + slug;
-  const attribution = "Książka pochodzi z serwisu Wolne Lektury. Źródło: " + sourceUrl +
-    ". Licencja: " + licenceMatch[0] +
-    ". Pełna nota licencyjna i źródłowa zachowana w oryginalnym tekście.";
+  const attribution = "Utwór oznaczony przez Wolne Lektury jako domena publiczna. Źródło: " + sourceUrl +
+    ". Wydanie zawiera także materiały redakcyjne i przypisy; zachowano notę źródłową i licencyjną z oryginalnego pliku. Licencja/notatka: " + licenceMatch[0] +
+    ". Książka dostępna bezpłatnie; atrybucja i oryginalne informacje o prawach pozostają w tekście.";
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(
       `INSERT INTO books
        (id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-       VALUES($1,$2,$3,$4,'personal','pl',1834,0,FALSE,$5,$6,'public_domain',FALSE,$6,$7,$6)
+       VALUES($1,$2,$3,$4,'personal','pl',1834,0,FALSE,$5,$6,'licensed',FALSE,$6,$7,$6)
        ON CONFLICT(id) DO UPDATE SET
        title=EXCLUDED.title,author=EXCLUDED.author,description=EXCLUDED.description,
        cover_url=EXCLUDED.cover_url,content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,
        source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url,
-       rights_status='public_domain'`,
+       rights_status='licensed'`,
       [id, title, author, attribution, coverUrl, textUrl, licenceMatch[0].slice(0, 500)]
     );
     const rights = await client.query("SELECT rights_status FROM books WHERE id=$1 FOR UPDATE", [id]);
-    if (!rights.rows[0] || rights.rows[0].rights_status !== "public_domain") {
+    if (!rights.rows[0] || rights.rows[0].rights_status !== "licensed") {
       throw new Error("Rights status did not pass verification");
     }
     await client.query("DELETE FROM book_pages WHERE book_id=$1", [id]);
