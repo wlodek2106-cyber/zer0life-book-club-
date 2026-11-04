@@ -62,7 +62,7 @@ function makePages(text) {
 module.exports = async function importEntrepreneurship(pool) {
   const indexUrl = BOOK.index;
   const indexHtml = await get(indexUrl);
-  if (!/CC BY 4\.0 license/i.test(indexHtml) && !/shared under a CC BY 4\.0 license/i.test(indexHtml)) {
+  if (!/CC BY\s*4\.0/i.test(indexHtml) && !/creativecommons\.org\/licenses\/by\/4\.0/i.test(indexHtml) && !/Creative Commons Attribution 4\.0/i.test(indexHtml)) {
     throw new Error("Book index did not expose the expected CC BY 4.0 notice");
   }
   const basePath = new URL(indexUrl).pathname.replace(/\/$/, "") + "/";
