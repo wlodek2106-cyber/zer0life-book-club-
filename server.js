@@ -854,7 +854,7 @@ async function catalog(req,res) {
    EXISTS (SELECT 1 FROM book_pages bp WHERE bp.book_id=books.id) AS "hasFullText"
    FROM books
    WHERE ($1='all' OR category=$1) AND ($2='all' OR language=$2)
-   AND ($3='' OR LOWER(title||' '||author||' '||description) LIKE '%'||$3||'%') ORDER BY created_at DESC,[cat,lang,q]);
+   AND ($3='' OR LOWER(title||' '||author||' '||description) LIKE '%'||$3||'%') ORDER BY created_at DESC`,[cat,lang,q]);
   return res.json({categories,books:r.rows});
  }
  const rows=sampleBooks.filter(b=>(cat==="all"||b.category===cat)&&(lang==="all"||b.lang===lang)&&(!q||`${b.title} ${b.author} ${b.description}`.toLowerCase().includes(q)));
