@@ -1160,6 +1160,7 @@ app.post("/api/internal/catalog-sync",async(req,res)=>{
  if(!expected||supplied!==expected)return res.status(401).json({error:"Unauthorized"});
  try{
   await importCatalogMetadata();
+     try { await require('./scripts/import-entrepreneurship')(pool); } catch (error) { console.error('Entrepreneurship full-text import failed:', error.message); }
   const counts=await pool.query("SELECT language,COUNT(*)::int AS total,COUNT(*) FILTER (WHERE rights_status='pending')::int AS pending FROM books GROUP BY language ORDER BY language");
   res.json({ok:true,counts:counts.rows});
  }catch(e){console.error("Scheduled catalog sync failed:",e.message);res.status(500).json({error:"Catalog sync failed"});}
