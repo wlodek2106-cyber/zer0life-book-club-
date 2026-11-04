@@ -1,8 +1,19 @@
 // Imports one openly licensed Wolne Lektury work into the free catalogue.
 // Usage is through server startup: require("./scripts/import-wolne-lektury")(pool)
 module.exports = async function importWolneLektury(pool) {
-  const slug = "pan-tadeusz";
-  const apiUrl = "https://eink.wolnelektury.pl/api/books/" + slug + "/?format=json";
+  const apiBase = "https://wolnelektury.pl/api/";
+  const wantedTitle = "Pan Tadeusz";
+  const listResponse = await fetch(apiBase + "books/?format=json", { headers: { Accept: "application/json", "User-Agent": "Zer0LifeBookClub/1.0 (Wolne Lektury attribution import)" } });
+  if (!listResponse.ok) throw new Error("Wolne Lektury book list HTTP " + listResponse.status);
+  const listPayload = await listResponse.json();
+  const entries = Array.isArray(listPayload) ? listPayload : (listPayload.books || listPayload.results || []);
+  const norm = value => String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const match = entries.find(item => norm(item.title) === norm(wantedTitle)) || entries.find(item => norm(item.title).includes(norm(wantedTitle)));
+  if (!match) throw new Error("Pan Tadeusz not found in official API book list; returned " + entries.length + " entries");
+  const detailUrl = match.href || match.api_url || match.url;
+  if (!detailUrl) throw new Error("Book list entry lacks detail URL: " + JSON.stringify(match));
+  const slug = match.slug || detailUrl.split("/").filter(Boolean).pop();
+  const apiUrl = new URL(detailUrl, apiBase).toString();
   const headers = {
     Accept: "application/json",
     "User-Agent": "Zer0LifeBookClub/1.0 (Wolne Lektury attribution import)"
@@ -11,11 +22,11 @@ module.exports = async function importWolneLektury(pool) {
   if (!apiResponse.ok) throw new Error("Wolne Lektury API HTTP " + apiResponse.status);
   const payload = await apiResponse.json();
   const book = payload.book || payload.result || payload;
-  const title = book.title;
-  const author = (book.author_names || []).join(", ");
-  const sourceUrl = book.url || book.source_url || ("https://wolnelektury.pl/katalog/lektura/" + slug + "/");
-  const textUrl = book.txt_url;
-  const coverUrl = book.cover_url;
+  const title = book.title || match.title;
+  const author = (book.author_names || (book.authors || []).map(a => a.name) || [book.author || match.author || "Adam Mickiewicz"]).join(", ");
+  const sourceUrl = book.url || book.source_url || match.url || ("https://wolnelektury.pl/katalog/lektura/" + slug + "/");
+  const textUrl = book.txt_url || book.text_url;
+  const coverUrl = book.cover_url || match.cover_url;
   if (!title || !author || !textUrl || !coverUrl) {
     throw new Error("Wolne Lektury detail response incomplete; root keys=" + Object.keys(payload).join(",") + "; book keys=" + Object.keys(book).join(",") + "; title=" + !!title + "; author=" + !!author + "; txt=" + !!textUrl + "; cover=" + !!coverUrl);
   }
