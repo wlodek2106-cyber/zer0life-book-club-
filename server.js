@@ -1252,6 +1252,7 @@ async function start() {
      await importCatalogMetadata();
      await importStandardEbooks();
      await importCuratedWikisourceBooks();
+     try { await require('./scripts/import-entrepreneurship')(pool); } catch (error) { console.error('Entrepreneurship full-text import failed:', error.message); }
      scheduleCatalogSync();
      console.log("Background catalogue import finished.");
     } catch (error) {
