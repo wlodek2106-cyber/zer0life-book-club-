@@ -177,6 +177,15 @@ async function initDatabase() {
    PRIMARY KEY (telegram_id, challenge_date)
   );
   CREATE INDEX IF NOT EXISTS daily_growth_user_date_idx ON daily_growth_completions(telegram_id,challenge_date DESC);
+  CREATE TABLE IF NOT EXISTS growth_program_progress (
+   telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+   program_id TEXT NOT NULL CHECK (program_id IN ('reset-7','transform-30')),
+   day_number INTEGER NOT NULL CHECK (day_number BETWEEN 1 AND 30),
+   completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+   reflection TEXT NOT NULL DEFAULT '',
+   PRIMARY KEY (telegram_id,program_id,day_number)
+  );
+  CREATE INDEX IF NOT EXISTS growth_program_user_idx ON growth_program_progress(telegram_id,program_id,day_number);
   CREATE TABLE IF NOT EXISTS book_pages (
    book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
    page_number INTEGER NOT NULL CHECK (page_number > 0),
@@ -788,6 +797,36 @@ app.post("/api/growth/complete",auth,async(req,res)=>{
   const stats=await pool.query("SELECT COALESCE(SUM(xp_earned),0)::int AS xp,COUNT(*)::int AS completed FROM daily_growth_completions WHERE telegram_id=$1",[req.user.id]);
   res.json({ok:true,alreadyCompleted:r.rowCount===0,awardedXp:r.rowCount?challenge.xp:0,xp:Number(stats.rows[0].xp),level:Math.floor(Number(stats.rows[0].xp)/100)+1,completedDays:Number(stats.rows[0].completed)});
  }catch(e){res.status(500).json({error:e.message});}
+});
+
+const GROWTH_PROGRAMS={"reset-7":7,"transform-30":30};
+app.get("/api/growth/programs",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const r=await pool.query("SELECT program_id,day_number,completed_at,reflection FROM growth_program_progress WHERE telegram_id=$1 ORDER BY program_id,day_number",[req.user.id]);
+  const stats=await pool.query("SELECT program_id,COUNT(*)::int AS completed FROM growth_program_progress WHERE telegram_id=$1 GROUP BY program_id",[req.user.id]);
+  res.json({progress:r.rows,counts:Object.fromEntries(stats.rows.map(x=>[x.program_id,Number(x.completed)]))});
+ }catch(e){res.status(503).json({error:e.message});}
+});
+app.post("/api/growth/programs/:programId/:day/complete",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const program=req.params.programId,day=Number(req.params.day),max=GROWTH_PROGRAMS[program];
+  if(!max||!Number.isInteger(day)||day<1||day>max)return res.status(400).json({error:"Invalid growth programme day."});
+  const reflection=String(req.body.reflection||"").trim().slice(0,1000);
+  const r=await pool.query("INSERT INTO growth_program_progress(telegram_id,program_id,day_number,reflection) VALUES($1,$2,$3,$4) ON CONFLICT(telegram_id,program_id,day_number) DO UPDATE SET reflection=CASE WHEN EXCLUDED.reflection<>'' THEN EXCLUDED.reflection ELSE growth_program_progress.reflection END RETURNING program_id,day_number,completed_at,reflection",[req.user.id,program,day,reflection]);
+  const count=await pool.query("SELECT COUNT(*)::int AS completed FROM growth_program_progress WHERE telegram_id=$1 AND program_id=$2",[req.user.id,program]);
+  res.json({ok:true,progress:r.rows[0],completed:Number(count.rows[0].completed),total:max});
+ }catch(e){res.status(500).json({error:e.message});}
+});
+app.get("/api/growth/weekly-review",auth,async(req,res)=>{
+ try{
+  await ensureUser(req.user);
+  const r=await pool.query("SELECT COUNT(*) FILTER (WHERE challenge_date>=CURRENT_DATE-6)::int AS days_this_week,COALESCE(SUM(xp_earned) FILTER (WHERE challenge_date>=CURRENT_DATE-6),0)::int AS xp_this_week,COUNT(*) FILTER (WHERE challenge_date>=CURRENT_DATE-6 AND challenge_date<CURRENT_DATE)::int AS previous_days FROM daily_growth_completions WHERE telegram_id=$1",[req.user.id]);
+  const reading=await pool.query("SELECT COUNT(*) FILTER (WHERE status='completed')::int AS books_finished,COUNT(*) FILTER (WHERE status='reading')::int AS books_in_progress FROM reading_progress WHERE telegram_id=$1",[req.user.id]);
+  const program=await pool.query("SELECT COUNT(*)::int AS programme_days FROM growth_program_progress WHERE telegram_id=$1 AND completed_at>=NOW()-INTERVAL '7 days'",[req.user.id]);
+  res.json({week:r.rows[0],reading:reading.rows[0],programmeDays:Number(program.rows[0].programme_days)});
+ }catch(e){res.status(503).json({error:e.message});}
 });
 
 app.get("/api/reading",auth,async(req,res)=>{
