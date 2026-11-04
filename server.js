@@ -327,32 +327,42 @@ function extractEpubText(buffer){
  return text;
 }
 async function importStandardEbooks(){
+ // Curated business, psychology, finance and personal-growth classics.
+ // Only authors whose Polish/EU life+70 term has expired are eligible here.
  const works=[
-  {id:"pg-1342",title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,category:"relationships",slug:"jane-austen/pride-and-prejudice"},
-  {id:"pg-84",title:"Frankenstein",author:"Mary Shelley",death:1851,year:1831,category:"psychology",slug:"mary-shelley/frankenstein"},
-  {id:"pg-1661",title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,category:"personal",slug:"arthur-conan-doyle/the-adventures-of-sherlock-holmes"}
+  {id:"pg-1342",title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,category:"relationships"},
+  {id:"pg-84",title:"Frankenstein; or, The Modern Prometheus",author:"Mary Shelley",death:1851,year:1818,category:"psychology"},
+  {id:"pg-1661",title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,category:"personal"},
+  {id:"pg-6435",title:"The Principles of Scientific Management",author:"Frederick Winslow Taylor",death:1915,year:1911,category:"business"},
+  {id:"pg-8581",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,category:"money"},
+  {id:"pg-59844",title:"The Science of Getting Rich",author:"Wallace D. Wattles",death:1911,year:1910,category:"money"},
+  {id:"pg-42055",title:"Your Mind and How to Use It",author:"William Walker Atkinson",death:1932,year:1911,category:"psychology"}
  ];
  const result=[];
  for(const w of works){
   try{
    if(2026-w.death<71)throw new Error("Author term not expired in Poland");
-   const pageUrl="https://standardebooks.org/ebooks/"+w.slug;
-   const downloadUrl=pageUrl+"/downloads/epub";
-   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-    VALUES($1,$2,$3,'Standard Ebooks edition; original author term expired in Poland. Text edition dedicated by Standard Ebooks to CC0; text only, no cover imported.',$4,'en',$5,0,FALSE,NULL,$6,'public_domain',FALSE,$7,'Original work: Polish life+70 term expired; Standard Ebooks production contributions CC0 1.0',$8)
-    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
-    WHERE books.rights_status IN ('pending','public_domain')`,
-    [w.id,w.title,w.author,w.category,w.year,downloadUrl,pageUrl,"https://standardebooks.org/about"]);
-   const response=await fetch(downloadUrl,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain ebook ingestion)","Accept":"application/epub+zip, application/octet-stream;q=0.9"}});
-   if(!response.ok)throw new Error("Standard Ebooks download HTTP "+response.status);
-   const contentType=(response.headers.get("content-type")||"").toLowerCase();
-   if(contentType.includes("text/html"))throw new Error("Download endpoint returned HTML, not EPUB");
-   const bytes=Buffer.from(await response.arrayBuffer());
-   if(bytes.length<10000||bytes.length>30000000)throw new Error("EPUB size outside expected range");
-   const textBody=extractEpubText(bytes);
-   const chunks=[];let rest=textBody;
+   const n=w.id.replace("pg-","");
+   const downloadUrl="https://www.gutenberg.org/cache/epub/"+n+"/"+w.id+".txt.utf8";
+   const pageUrl="https://www.gutenberg.org/ebooks/"+n;
+   const response=await fetch(downloadUrl,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain ebook ingestion)"}});
+   if(!response.ok)throw new Error("Project Gutenberg download HTTP "+response.status);
+   let body=(await response.text()).replace(/^\\uFEFF/,"").replace(/\\r/g,"").trim();
+   const start=body.search(/\\*\\*\\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+   if(start>=0){const nl=body.indexOf("\\n",start);if(nl>=0)body=body.slice(nl+1);}
+   const finish=body.search(/\\*\\*\\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
+   if(finish>=0)body=body.slice(0,finish);
+   body=body.trim();
+   if(body.length<10000)throw new Error("Downloaded text is too short; refusing partial publication");
+   const chunks=[];let rest=body;
    while(rest.length){let cut=Math.min(2800,rest.length);if(cut<rest.length){const p=rest.lastIndexOf(" ",cut);if(p>cut*.65)cut=p;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
    if(chunks.length<5)throw new Error("Insufficient page count");
+   const license="Original author life+70 term expired in Poland; original-language text from Project Gutenberg. Source page and Project Gutenberg license/attribution retained for review.";
+   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+    VALUES($1,$2,$3,$4,$5,'en',$6,0,FALSE,NULL,$7,'public_domain',FALSE,$8,$9,$8)
+    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
+    WHERE books.rights_status IN ('pending','public_domain')`,
+    [w.id,w.title,w.author,"Complete English text. Original author life+70 term has expired in Poland. Project Gutenberg source and attribution: "+pageUrl,w.category,w.year,downloadUrl,pageUrl,license]);
    const client=await pool.connect();
    try{
     await client.query("BEGIN");
@@ -363,13 +373,11 @@ async function importStandardEbooks(){
     await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=$2 WHERE id=$1",[w.id,downloadUrl]);
     await client.query("COMMIT");
    }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
-   result.push({id:w.id,title:w.title,status:"published",pages:chunks.length});
-  }catch(e){console.error("Standard Ebooks import skipped:",w.title,e.message);result.push({id:w.id,title:w.title,status:"skipped",reason:e.message});}
+   result.push({id:w.id,title:w.title,category:w.category,status:"published",pages:chunks.length});
+  }catch(e){console.error("Curated English import skipped:",w.title,e.message);result.push({id:w.id,title:w.title,category:w.category,status:"skipped",reason:e.message});}
  }
- console.log("Standard Ebooks full-text import:",JSON.stringify(result));
- return result;
+ console.log("Curated English full-text import:",JSON.stringify(result));return result;
 }
-
 async function importCuratedWikisourceBooks(){
  const works=[
   {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i},
