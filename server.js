@@ -632,11 +632,27 @@ async function importCuratedWikisourceBooks(){
    const source="https://"+w.host+"/wiki/"+encodeURIComponent(w.page.replace(/ /g,"_"));
    const apiBase="https://"+w.host+"/w/api.php?action=parse&prop=text%7Clinks&format=json&formatversion=2&page=";
    const fetchPage=async title=>{
-    const response=await fetch(apiBase+encodeURIComponent(title),{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
-    if(!response.ok)throw new Error("Wikisource API HTTP "+response.status+" for "+title);
-    const data=await response.json();
-    if(data.error)throw new Error(data.error.info||"Wikisource page unavailable");
-    return data.parse||{};
+    const url=apiBase+encodeURIComponent(title);
+    let lastError;
+    for(let attempt=0;attempt<5;attempt++){
+     try{
+      if(attempt>0)await new Promise(resolve=>setTimeout(resolve,1500*Math.pow(2,attempt-1)));
+      const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
+      if(response.status===429||response.status>=500){
+       lastError=new Error("Wikisource API HTTP "+response.status+" for "+title);
+       if(attempt<4)continue;
+       throw lastError;
+      }
+      if(!response.ok)throw new Error("Wikisource API HTTP "+response.status+" for "+title);
+      const data=await response.json();
+      if(data.error)throw new Error(data.error.info||"Wikisource page unavailable");
+      return data.parse||{};
+     }catch(error){
+      lastError=error;
+      if(attempt===4||!/429|5\\d\\d|fetch failed|network/i.test(error.message))throw error;
+     }
+    }
+    throw lastError||new Error("Wikisource page request failed: "+title);
    };
    const root=await fetchPage(w.page);
    const rootHtml=String(root.text||"");
