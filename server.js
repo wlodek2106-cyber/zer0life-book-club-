@@ -626,6 +626,7 @@ async function importCuratedWikisourceBooks(){
   {id:"uk-eneida-1798",title:"Енеїда",author:"Іван Котляревський",death:1838,year:1798,lang:"uk",host:"uk.wikisource.org",page:"Енеїда (1798)",proof:/суспільному надбанні в усьому світі/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/eneida.svg"}
  ];
  const results=[];
+ let lastWikisourceRequestAt=0;
  for(const w of works){
   try{
    if(2026-w.death<71)throw new Error("Author's life+70 term has not expired for Poland");
@@ -637,6 +638,9 @@ async function importCuratedWikisourceBooks(){
     for(let attempt=0;attempt<5;attempt++){
      try{
       if(attempt>0)await new Promise(resolve=>setTimeout(resolve,1500*Math.pow(2,attempt-1)));
+      const waitMs=Math.max(0,1200-(Date.now()-lastWikisourceRequestAt));
+      if(waitMs)await new Promise(resolve=>setTimeout(resolve,waitMs));
+      lastWikisourceRequestAt=Date.now();
       const response=await fetch(url,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
       if(response.status===429||response.status>=500){
        lastError=new Error("Wikisource API HTTP "+response.status+" for "+title);
