@@ -1272,6 +1272,20 @@ app.post("/api/admin/books/:bookId/rights",auth,admin,async(req,res)=>{
   res.json({ok:true,id:r.rows[0].id,rights_status:b.rights_status});
  }catch(e){res.status(500).json({error:e.message});}
 });
+app.get("/api/admin/books-needing-pages",auth,admin,async(_req,res)=>{
+ try{
+  const r=await pool.query(`
+   SELECT b.id,b.title,b.author,b.language,b.category,b.rights_status,b.is_published,
+          b.cover_url,b.source_url,b.content_url,b.source_license,
+          COUNT(bp.page_number)::int AS page_count
+   FROM books b LEFT JOIN book_pages bp ON bp.book_id=b.id
+   GROUP BY b.id
+   HAVING COUNT(bp.page_number)=0
+   ORDER BY b.language,b.category,b.title
+  `);
+  res.json({books:r.rows,total:r.rowCount});
+ }catch(e){res.status(500).json({error:e.message});}
+});
 app.get("/api/admin/stats",auth,admin,async(_req,res)=>{
  try{
   const [users,subs,books,sales]=await Promise.all([
