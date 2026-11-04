@@ -54,11 +54,39 @@ function renderCategories(){
  $("#categoryGrid").innerHTML=categories.map(([id,icon])=>{let label=id==="all"?tx("All books","Все книги","Wszystkie","Усі книги"):catNames[id][["en","ru","pl","uk"].indexOf(state.lang)]||catNames[id][0];return `<button class="category ${state.category===id?"active":""}" data-cat="${id}"><span class="cat-icon">${icon}</span><b>${label}</b></button>`}).join("");
  document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{state.category=b.dataset.cat;state.savedOnly=false;loadBooks()});
 }
+function coverForBook(b){
+ if(b.cover)return b.cover;
+ const lang=String(b.lang||"en").toLowerCase();
+ const title=String(b.title||"Zer0Life Library");
+ const category=String(b.category||"personal").toLowerCase();
+ const slug=title.toLowerCase();
+ const known=[
+  ["48 laws","48-laws-power"],["48 закон","48-laws-power"],["48 praw","48-laws-power"],["48 закон","48-laws-power"],
+  ["body language","body-language"],["язык тела","body-language"],["język ciała","body-language"],["мова тіла","body-language"],
+  ["attached","attached"],["привязан","attached"],["przywiąz","attached"],
+  ["crowd","crowd-le-bon"],["толп","crowd-le-bon"],["tłum","crowd-le-bon"],
+  ["emotional intelligence","emotional-intelligence"],["эмоциональн интеллект","emotional-intelligence"],["inteligencja emocjonalna","emotional-intelligence"],
+  ["games people play","games-people-play"],["игры, в которые","games-people-play"],["gry, w które","games-people-play"],
+  ["laws of human nature","laws-human-nature"],["законы человеческой природы","laws-human-nature"],["prawa natury ludzkiej","laws-human-nature"],
+  ["psychology of persuasion","psychology-persuasion"],["психология влияния","influence-cialdini"],["psychologia wpływu","influence-cialdini"],
+  ["surrounded by idiots","surrounded-idiots"],["окруж","surrounded-idiots"],["otoczeni","surrounded-idiots"],
+  ["difficult conversations","difficult-conversations"],["трудные разговоры","difficult-conversations"],["trudne rozmowy","difficult-conversations"]
+ ];
+ const hit=known.find(x=>slug.includes(x[0]));
+ if(hit)return "https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/human-behavior/"+lang+"-"+hit[1]+".svg";
+ const palette={business:["#172c35","#c6a36b"],money:["#263426","#c9ae70"],psychology:["#28233e","#b69be7"],psychosomatics:["#263c40","#8bc5bb"],mindfulness:["#203c39","#b6cba1"],relationships:["#422b3a","#d69bb5"],leadership:["#292f3b","#c5a76e"],personal:["#263344","#8eabc8"]};
+ const colors=palette[category]||palette.personal;
+ const safe=t=>t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ const lines=[];let rest=title;while(rest.length>19&&lines.length<3){let cut=rest.lastIndexOf(" ",19);if(cut<8)cut=19;lines.push(rest.slice(0,cut));rest=rest.slice(cut).trim();}lines.push(rest.slice(0,22));
+ const text=lines.map((line,i)=>'<text x="42" y="'+(300+i*47)+'" font-family="Georgia,serif" font-size="34" font-weight="700" fill="#f5f0e7">'+safe(line)+'</text>').join("");
+ const svg='<svg xmlns="http://www.w3.org/2000/svg" width="420" height="600" viewBox="0 0 420 600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="'+colors[0]+'"/><stop offset="1" stop-color="#101318"/></linearGradient><pattern id="p" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M0 34L34 0" stroke="'+colors[1]+'" stroke-opacity=".12"/></pattern></defs><rect width="420" height="600" fill="url(#g)"/><rect width="420" height="600" fill="url(#p)"/><rect x="24" y="24" width="372" height="552" rx="5" fill="none" stroke="'+colors[1]+'" stroke-opacity=".65"/><circle cx="326" cy="155" r="88" fill="none" stroke="'+colors[1]+'" stroke-opacity=".45" stroke-width="2"/><circle cx="326" cy="155" r="58" fill="none" stroke="'+colors[1]+'" stroke-opacity=".28"/><path d="M42 245H378" stroke="'+colors[1]+'" stroke-opacity=".65"/>'+text+'<text x="42" y="500" font-family="Arial,sans-serif" font-size="14" letter-spacing="4" fill="'+colors[1]+'">ZER0LIFE BOOK CLUB</text><text x="42" y="535" font-family="Arial,sans-serif" font-size="11" letter-spacing="3" fill="#c8c4bc">IDEAS · KNOWLEDGE · GROWTH</text></svg>';
+ return "data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg);
+}
 function renderBooks(){
  let books=[...state.books];if(state.savedOnly)books=books.filter(b=>state.favorites.has(b.id));
  if($("#sortSelect").value==="az")books.sort((a,b)=>a.title.localeCompare(b.title));
  $("#bookCount").textContent=String(books.length).padStart(2,"0")+" BOOKS";
- $("#bookGrid").innerHTML=books.length?books.map(b=>`<article class="book-card"><div class="cover-wrap"><img src="${b.cover}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-fallback" style="display:none">${b.title}</div><span class="book-tag">${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?"FULL TEXT": "CATALOG ONLY"}</span></div><h3>${b.title}</h3><div class="book-author">${b.author} · ${b.year}</div><div class="book-meta"><span>${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?(b.vip?"VIP / "+b.priceStars+" ★":b.priceStars+" ★"):"METADATA · NO READER"}</span><button data-book="${b.id}">Details ↗</button></div></article>`).join(""):`<div class="empty">${tr().empty}</div>`;
+ $("#bookGrid").innerHTML=books.length?books.map(b=>`<article class="book-card"><div class="cover-wrap"><img src="${coverForBook(b)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-fallback" style="display:none">${b.title}</div><span class="book-tag">${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?"FULL TEXT": "CATALOG ONLY"}</span></div><h3>${b.title}</h3><div class="book-author">${b.author} · ${b.year}</div><div class="book-meta"><span>${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?(b.vip?"VIP / "+b.priceStars+" ★":b.priceStars+" ★"):"METADATA · NO READER"}</span><button data-book="${b.id}">Details ↗</button></div></article>`).join(""):`<div class="empty">${tr().empty}</div>`;
  document.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>openBook(b.dataset.book));
 }
 function openModal(html){$("#modalContent").innerHTML=html;$("#modalBackdrop").classList.add("open")}
@@ -66,7 +94,7 @@ function closeModal(){$("#modalBackdrop").classList.remove("open")}
 function openBook(id){
  const b=state.books.find(x=>x.id===id);if(!b)return;
  const p=state.reading.find(x=>x.book_id===id);
- openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${b.cover||""}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
+ openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${coverForBook(b)}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
  <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
  <div id="bookPages" style="margin:16px 0"></div>
  <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?(tx("Статус: ","Статус: ","Status: ")+(p.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):p.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach"))+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
