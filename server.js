@@ -627,7 +627,7 @@ async function importCuratedWikisourceBooks(){
   {id:"en-art-of-money-getting",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,lang:"en",host:"en.wikisource.org",page:"The Art of Money Getting",proof:/public domain/i,category:"money",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/art-of-money-getting.svg"},
   {id:"ru-crime-and-punishment",title:"Преступление и наказание",author:"Фёдор Михайлович Достоевский",death:1881,year:1866,lang:"ru",host:"ru.wikisource.org",page:"Преступление и наказание (Достоевский)",proof:/общественное достояние/i,category:"psychology",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/crime-and-punishment-ru.svg"},
   {id:"pl-pan-tadeusz-1834",title:"Pan Tadeusz (wyd. 1834)",author:"Adam Mickiewicz",death:1855,year:1834,lang:"pl",host:"pl.wikisource.org",page:"Pan Tadeusz (wyd. 1834)",proof:/public domain/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/pan-tadeusz-pl.svg"},
-  {id:"uk-eneida-1798",title:"Енеїда",author:"Іван Котляревський",death:1838,year:1798,lang:"uk",host:"uk.wikisource.org",page:"Енеїда (1798)",proof:/суспільному надбанні в усьому світі/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/eneida.svg"}
+  {id:"uk-eneida-1798",title:"Енеїда",author:"Іван Котляревський",death:1838,year:1798,lang:"uk",host:"uk.wikisource.org",page:"Енеїда (1798)",chapterPages:["Енеїда (1798)/I","Енеїда (1798)/II","Енеїда (1798)/III"],proof:/суспільному надбанні в усьому світі/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/eneida.svg"}
  ];
  const results=[];
  let lastWikisourceRequestAt=0;
@@ -669,7 +669,7 @@ async function importCuratedWikisourceBooks(){
    if(!rootHtml||!w.proof.test(rootHtml))throw new Error("Exact work page lacks the expected public-domain notice");
    // Wikisource often stores a book as an index linking to separate chapters.
    // Crawl only descendants of the exact work page; never publish the short index itself.
-   const queue=(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!/(словник|значен|dictionary|glossary)/i.test(t));
+   const queue=Array.isArray(w.chapterPages)?w.chapterPages.slice():(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!/(словник|значен|dictionary|glossary)/i.test(t));
    const seen=new Set(),parts=[];
    while(queue.length&&seen.size<160){
     const title=queue.shift();
@@ -684,7 +684,8 @@ async function importCuratedWikisourceBooks(){
     // Leaf chapter pages carry prose; navigation and index pages are not imported.
     if(!childLinks.length&&text.length>500)parts.push({title,text});
    }
-   if(!parts.length)throw new Error("No full chapter pages found under the book index");
+   if(Array.isArray(w.chapterPages)&&parts.length!==w.chapterPages.length)throw new Error("Expected all original poem parts; received "+parts.length);
+    if(!parts.length)throw new Error("No full chapter pages found under the book index");
    parts.sort((a,b)=>a.title.localeCompare(b.title,"ru"));
    const body=parts.map(p=>p.text).join("\n\n");
    if(body.length<12000)throw new Error("Collected chapter text is too short ("+body.length+" chars); refusing partial publication");
