@@ -86,7 +86,7 @@ function renderBooks(){
  let books=[...state.books];if(state.savedOnly)books=books.filter(b=>state.favorites.has(b.id));
  if($("#sortSelect").value==="az")books.sort((a,b)=>a.title.localeCompare(b.title));
  $("#bookCount").textContent=String(books.length).padStart(2,"0")+" BOOKS";
- $("#bookGrid").innerHTML=books.length?books.map(b=>`<article class="book-card"><div class="cover-wrap"><img src="${coverForBook(b)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="cover-fallback" style="display:none">${b.title}</div><span class="book-tag">${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?"FULL TEXT": "CATALOG ONLY"}</span></div><h3>${b.title}</h3><div class="book-author">${b.author} · ${b.year}</div><div class="book-meta"><span>${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?(b.vip?"VIP / "+b.priceStars+" ★":b.priceStars+" ★"):"METADATA · NO READER"}</span><button data-book="${b.id}">Details ↗</button></div></article>`).join(""):`<div class="empty">${tr().empty}</div>`;
+ $("#bookGrid").innerHTML=books.length?books.map(b=>`<article class="book-card"><div class="cover-wrap"><img src="${coverForBook(b)}" alt="" onerror="this.onerror=null;this.src='${coverForBook({...b,cover:''})}'"><div class="cover-fallback" style="display:none">${b.title}</div><span class="book-tag">${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?"FULL TEXT": "CATALOG ONLY"}</span></div><h3>${b.title}</h3><div class="book-author">${b.author} · ${b.year}</div><div class="book-meta"><span>${b.hasFullText&&b.isPublished&&["licensed","public_domain","original"].includes(b.rightsStatus)?(b.vip?"VIP / "+b.priceStars+" ★":b.priceStars+" ★"):"METADATA · NO READER"}</span><button data-book="${b.id}">Details ↗</button></div></article>`).join(""):`<div class="empty">${tr().empty}</div>`;
  document.querySelectorAll("[data-book]").forEach(b=>b.onclick=()=>openBook(b.dataset.book));
 }
 function openModal(html){$("#modalContent").innerHTML=html;$("#modalBackdrop").classList.add("open")}
@@ -94,7 +94,7 @@ function closeModal(){$("#modalBackdrop").classList.remove("open")}
 function openBook(id){
  const b=state.books.find(x=>x.id===id);if(!b)return;
  const p=state.reading.find(x=>x.book_id===id);
- openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${coverForBook(b)}" onerror="this.style.display='none'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
+ openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${coverForBook(b)}" onerror="this.onerror=null;this.src='${coverForBook({...b,cover:''})}'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
  <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
  <div id="bookPages" style="margin:16px 0"></div>
  <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?(tx("Статус: ","Статус: ","Status: ")+(p.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):p.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach"))+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
