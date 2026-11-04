@@ -34,7 +34,7 @@ module.exports = async function importWolneLektury(pool) {
 
   // Keep the source-provided legal notice verbatim at the end of the text.
   const footer = body.slice(-16000);
-  const licencePattern = /(Creative Commons[^\n]{0,240}|CC BY(?:-SA)?[^\n]{0,240}|CC0[^\n]{0,240}|domena publiczna[^\n]{0,240}|public domain[^\n]{0,240})/i;
+  const licencePattern = /(Creative Commons[^\n]{0,240}|CC BY(?:-SA)?[^\n]{0,240}|CC0[^\n]{0,240}|domena publiczna|domenie publicznej[^\n]{0,240}|public domain[^\n]{0,240})/i;
   const licenceMatch = footer.match(licencePattern);
   if (!licenceMatch) throw new Error("No explicit licence/public-domain statement found in source text; refusing import");
 
