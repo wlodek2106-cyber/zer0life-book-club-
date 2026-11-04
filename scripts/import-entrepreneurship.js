@@ -39,6 +39,7 @@ function extractLinks(html, base, prefix) {
   }
   return [...links];
 }
+function hasCCBY4(html) { return /CC BY\s*4\.0/i.test(html) || /creativecommons\.org\/licenses\/by\/4\.0/i.test(html) || /Creative Commons Attribution 4\.0/i.test(html) || /Attribution 4\.0 International/i.test(html); }
 async function get(url) {
   const r = await fetch(url, { headers: { "User-Agent": "Zer0LifeBookClub/1.0 (CC BY 4.0 OER reader)", Accept: "text/html" } });
   if (!r.ok) throw new Error("LibreTexts HTTP " + r.status + " for " + url);
@@ -62,7 +63,7 @@ function makePages(text) {
 module.exports = async function importEntrepreneurship(pool) {
   const indexUrl = BOOK.index;
   const indexHtml = await get(indexUrl);
-  if (!/CC BY\s*4\.0/i.test(indexHtml) && !/creativecommons\.org\/licenses\/by\/4\.0/i.test(indexHtml) && !/Creative Commons Attribution 4\.0/i.test(indexHtml)) {
+  if (!hasCCBY4(indexHtml)) {
     throw new Error("Book index did not expose the expected CC BY 4.0 notice");
   }
   const basePath = new URL(indexUrl).pathname.replace(/\/$/, "") + "/";
@@ -83,7 +84,7 @@ module.exports = async function importEntrepreneurship(pool) {
   let totalChars = 0;
   for (const url of ordered) {
     const html = await get(url);
-    if (!/CC BY 4\.0 license/i.test(html) && !/shared under a CC BY 4\.0 license/i.test(html)) continue;
+    if (!hasCCBY4(html)) continue;
     const text = plainText(html);
     if (text.length < 900) continue;
     const content = BOOK.attribution + " Source chapter: " + url + ". " + text;
