@@ -94,14 +94,15 @@ function closeModal(){$("#modalBackdrop").classList.remove("open")}
 function openBook(id){
  const b=state.books.find(x=>x.id===id);if(!b)return;
  const p=state.reading.find(x=>x.book_id===id);
+ const canRead=b.hasFullText===true&&b.isPublished===true&&["licensed","public_domain","original"].includes(b.rightsStatus);
  openModal(`<div class="eyebrow">BOOK DETAILS</div><h2>${b.title}</h2><img class="modal-cover" src="${coverForBook(b)}" onerror="this.onerror=null;this.src='${coverForBook({...b,cover:''})}'"><b>${b.author}</b><p>${b.description||""}</p><p>Language: ${String(b.lang||"en").toUpperCase()} · ${b.year||""}</p>
- <div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
+ ${canRead?`<div class="notice">Бесплатный доступ включает первые 5 страниц. Полный текст доступен по активной подписке и только для книг с подтверждёнными правами.</div>
  <div id="bookPages" style="margin:16px 0"></div>
  <h3 style="margin:18px 0 8px">Мой прогресс</h3><p>${p?(tx("Статус: ","Статус: ","Status: ")+(p.status==="completed"?tx("Прочитано","Прочитано","Przeczytana"):p.status==="reading"?tx("Читаю","Читаю","Czytam"):tx("В планах","В планах","W planach"))+" · страница "+p.current_page+(p.total_pages?"/"+p.total_pages:"")):"Вы ещё не добавили книгу в свой план чтения."}</p>
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Текущая страница</label><input id="progressPage" type="number" min="0" value="${p?.current_page||0}" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <label style="display:block;font-size:11px;color:#aaa;margin:8px 0">Всего страниц (если известно)</label><input id="progressTotal" type="number" min="1" value="${p?.total_pages||""}" placeholder="Например, 240" style="width:100%;padding:12px;background:#101010;color:#fff;border:1px solid #39352e;border-radius:6px">
  <button class="gold-button" id="saveProgress">Сохранить прогресс</button><button class="gold-button" id="completeBook" style="background:#29251e;color:#d6bd8b">Отметить прочитанной</button>
-${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" style="background:#29251e;color:#d6bd8b">Оформить подписку</button>'}
+ ${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" style="background:#29251e;color:#d6bd8b">Оформить подписку</button>'}`:`<div class="notice">Карточка каталога. Полный текст пока недоступен: книга появится в читалке после подтверждения прав и загрузки текста.</div>` }
  <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?tx("В избранном","В избранном","W ulubionych"):tx("В избранное","В избранное","Dodaj do ulubionych")}</button>`);
  const pagesBox=$("#bookPages");
  if(b.hasFullText===false){pagesBox.innerHTML='<p class="notice">Карточка уже в библиотеке. Полный текст пока недоступен: требуется подтверждение права на распространение или загрузка легального текста.</p>';return;}
