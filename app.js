@@ -76,6 +76,7 @@ function openBook(id){
 ${state.me?.isAdmin?"":'<button class="gold-button" id="subscribeFromReader" style="background:#29251e;color:#d6bd8b">Оформить подписку</button>'}
  <button class="gold-button" id="saveBook" style="background:#29251e;color:#d6bd8b">♡ ${state.favorites.has(b.id)?tx("В избранном","В избранном","W ulubionych"):tx("В избранное","В избранное","Dodaj do ulubionych")}</button>`);
  const pagesBox=$("#bookPages");
+ if(b.hasFullText===false){pagesBox.innerHTML='<p class="notice">Карточка уже в библиотеке. Полный текст пока недоступен: требуется подтверждение права на распространение или загрузка легального текста.</p>';return;}
  if(initData()){
   api("/api/books/"+encodeURIComponent(id)+"/pages").then(data=>{
    const esc=s=>String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
