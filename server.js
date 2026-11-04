@@ -1244,8 +1244,12 @@ async function start() {
      await seedOriginalGrowthBooks();
      await seedOriginalStarterBooks();
      // Classics queues are disabled; prioritize full-length business and psychology books.
-     try { await require('./scripts/import-taylor-management')(pool); }
-     catch (error) { console.error('Taylor management full-text import failed:', error.message); }
+     try {
+      const importerPath = require.resolve('./scripts/import-taylor-management');
+      console.log('Taylor importer found:', importerPath);
+      const imported = await require(importerPath)(pool);
+      console.log('Taylor management import result:', JSON.stringify(imported));
+     } catch (error) { console.error('Taylor management full-text import failed:', error.stack || error.message); }
      await seedKnowledgeLibraryCandidates();
      await seedHumanBehaviorCandidates();
      await importCatalogMetadata();
