@@ -369,6 +369,52 @@ async function importStandardEbooks(){
  console.log("Standard Ebooks full-text import:",JSON.stringify(result));
  return result;
 }
+
+async function importCuratedWikisourceBooks(){
+ const works=[
+  {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i},
+  {id:"pl-pan-tadeusz",title:"Pan Tadeusz",author:"Adam Mickiewicz",death:1855,year:1834,lang:"pl",host:"pl.wikisource.org",page:"Pan Tadeusz (wyd. 1834)/całość",proof:/domena publiczna/i},
+  {id:"uk-mykola-dzherya",title:"Микола Джеря",author:"Іван Нечуй-Левицький",death:1918,year:1926,lang:"uk",host:"uk.wikisource.org",page:"Микола Джеря (1926)",proof:/суспільному надбанні в усьому світі/i}
+ ];
+ const results=[];
+ for(const w of works){
+  try{
+   if(2026-w.death<71)throw new Error("Author's life+70 term has not expired for Poland");
+   const source="https://"+w.host+"/wiki/"+encodeURIComponent(w.page.replace(/ /g,"_"));
+   const api="https://"+w.host+"/w/api.php?action=parse&prop=text&format=json&formatversion=2&page="+encodeURIComponent(w.page);
+   const response=await fetch(api,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain text import)"}});
+   if(!response.ok)throw new Error("Wikisource API HTTP "+response.status);
+   const data=await response.json();
+   const html=String(data.parse?.text||"");
+   if(!html||!w.proof.test(html))throw new Error("Page does not contain the expected public-domain notice; manual review required");
+   const body=decodeBookHtml(html);
+   if(body.length<12000)throw new Error("Source page is not a complete book-length text");
+   const chunks=[];let rest=body;
+   while(rest.length){let cut=Math.min(2800,rest.length);if(cut<rest.length){const p=rest.lastIndexOf(" ",cut);if(p>cut*.65)cut=p;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
+   if(chunks.length<5)throw new Error("Insufficient full-text pages");
+   const evidence="Wikisource page explicitly marks this exact work as public domain; author died in "+w.death+" and Poland applies life+70. Source: "+source;
+   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+    VALUES($1,$2,$3,$4,'personal',$5,$6,0,FALSE,NULL,$7,'public_domain',FALSE,$7,$8,$7)
+    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
+    WHERE books.rights_status IN ('pending','public_domain')`,
+    [w.id,w.title,w.author,"Complete original-language text from Wikisource. Public-domain notice checked on the exact source page. Attribution and source link retained: "+source,w.lang,w.year,source,"Public domain; exact page notice verified; author life+70 term expired in Poland"]);
+   const client=await pool.connect();
+   try{
+    await client.query("BEGIN");
+    const current=await client.query("SELECT rights_status FROM books WHERE id=$1 FOR UPDATE",[w.id]);
+    if(!current.rows[0]||current.rows[0].rights_status!=="public_domain")throw new Error("Rights approval not present");
+    await client.query("DELETE FROM book_pages WHERE book_id=$1",[w.id]);
+    for(let i=0;i<chunks.length;i++)await client.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[w.id,i+1,chunks[i]]);
+    await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=$2 WHERE id=$1",[w.id,source]);
+    await client.query("COMMIT");
+   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+   results.push({id:w.id,title:w.title,language:w.lang,status:"published",pages:chunks.length,source});
+  }catch(e){console.error("Wikisource import skipped:",w.id,e.message);results.push({id:w.id,title:w.title,language:w.lang,status:"skipped",reason:e.message});}
+ }
+ console.log("Curated Wikisource import:",JSON.stringify(results));
+ return results;
+}
+
 async function importCatalogMetadata() {
  // Import metadata only. Nothing is published until distribution rights are reviewed.
  const targets = [{code:"en",limit:50},{code:"ru",limit:50},{code:"pl",limit:50},{code:"uk",limit:50}];
@@ -804,7 +850,7 @@ function scheduleCatalogSync(){
  console.log('Daily catalog sync scheduled');
 }
 async function start() {
- if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await importCatalogMetadata(); scheduleCatalogSync(); }
+ if (pool) { await initDatabase(); await seedOriginalStarterBooks(); await seedInitialEnglishClassics(); await seedSlavicClassicsForRightsReview(); await seedMoreSlavicClassicsForReview(); await seedNextClassicsForRightsReview(); await importCatalogMetadata(); await importStandardEbooks(); await importCuratedWikisourceBooks(); scheduleCatalogSync(); }
  app.listen(PORT, async () => {
   console.log(`Zer0Life Book Club API listening on ${PORT}`);
   if (BOT_TOKEN) {
