@@ -671,18 +671,25 @@ async function importCuratedWikisourceBooks(){
    // Crawl only descendants of the exact work page; never publish the short index itself.
    const queue=Array.isArray(w.chapterPages)?w.chapterPages.slice():(root.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!/(словник|значен|dictionary|glossary)/i.test(t));
    const seen=new Set(),parts=[];
-   while(queue.length&&seen.size<160){
-    const title=queue.shift();
-    if(/(словник|значен|dictionary|glossary)/i.test(title))continue;
-    if(seen.has(title))continue;
-    seen.add(title);
-    const page=await fetchPage(title);
-    const html=String(page.text||"");
-    const childLinks=(page.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!seen.has(t)&&!/(словник|значен|dictionary|glossary)/i.test(t));
-    if(childLinks.length)queue.push(...childLinks);
-    const text=decodeBookHtml(html);
-    // Leaf chapter pages carry prose; navigation and index pages are not imported.
-    if(!childLinks.length&&text.length>500)parts.push({title,text});
+   if(Array.isArray(w.chapterPages)){
+    for(const title of queue){
+     const page=await fetchPage(title);
+     const chapterText=decodeBookHtml(String(page.text||""));
+     if(chapterText.length>500)parts.push({title,text:chapterText});
+    }
+   }else{
+    while(queue.length&&seen.size<160){
+     const title=queue.shift();
+     if(/(словник|значен|dictionary|glossary)/i.test(title))continue;
+     if(seen.has(title))continue;
+     seen.add(title);
+     const page=await fetchPage(title);
+     const html=String(page.text||"");
+     const childLinks=(page.links||[]).map(x=>x.title).filter(t=>t&&t.startsWith(w.page+"/")&&!seen.has(t)&&!/(словник|значен|dictionary|glossary)/i.test(t));
+     if(childLinks.length)queue.push(...childLinks);
+     const chapterText=decodeBookHtml(html);
+     if(!childLinks.length&&chapterText.length>500)parts.push({title,text:chapterText});
+    }
    }
    if(Array.isArray(w.chapterPages)&&parts.length!==w.chapterPages.length)throw new Error("Expected all original poem parts; received "+parts.length);
     if(!parts.length)throw new Error("No full chapter pages found under the book index");
