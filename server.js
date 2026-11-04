@@ -386,9 +386,9 @@ async function importStandardEbooks(){
 }
 async function importCuratedWikisourceBooks(){
  const works=[
-  {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i},
-  {id:"pl-pan-tadeusz",title:"Pan Tadeusz",author:"Adam Mickiewicz",death:1855,year:1834,lang:"pl",host:"pl.wikisource.org",page:"Pan Tadeusz (wyd. 1834)/całość",proof:/domena publiczna/i},
-  {id:"uk-mykola-dzherya",title:"Микола Джеря",author:"Іван Нечуй-Левицький",death:1918,year:1926,lang:"uk",host:"uk.wikisource.org",page:"Микола Джеря (1926)",proof:/суспільному надбанні в усьому світі/i}
+  {id:"ru-o-smysle-voyny",title:"О смысле войны",author:"Лев Александрович Тихомиров",death:1923,year:1905,lang:"ru",host:"ru.wikisource.org",page:"О смысле войны (Тихомиров)",proof:/общественное достояние/i,category:"psychology",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/o-smysle-voiny.svg"},
+  {id:"en-art-of-money-getting",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,lang:"en",host:"en.wikisource.org",page:"The Art of Money Getting",proof:/public domain/i,category:"money",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/art-of-money-getting.svg"},
+  {id:"uk-eneida-1798",title:"Енеїда",author:"Іван Котляревський",death:1838,year:1798,lang:"uk",host:"uk.wikisource.org",page:"Енеїда (1798)",proof:/суспільному надбанні в усьому світі/i,category:"personal",cover:"https://raw.githubusercontent.com/wlodek2106-cyber/zer0life-book-club-/main/covers/eneida.svg"}
  ];
  const results=[];
  for(const w of works){
@@ -408,10 +408,10 @@ async function importCuratedWikisourceBooks(){
    if(chunks.length<5)throw new Error("Insufficient full-text pages");
    const evidence="Wikisource page explicitly marks this exact work as public domain; author died in "+w.death+" and Poland applies life+70. Source: "+source;
    await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-    VALUES($1,$2,$3,$4,'personal',$5,$6,0,FALSE,NULL,$7,'public_domain',FALSE,$7,$8,$7)
-    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
+    VALUES($1,$2,$3,$4,$5,$6,$7,0,FALSE,$8,$9,'public_domain',FALSE,$9,$10,$9)
+    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,cover_url=COALESCE(EXCLUDED.cover_url,books.cover_url),source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
     WHERE books.rights_status IN ('pending','public_domain')`,
-    [w.id,w.title,w.author,"Complete original-language text from Wikisource. Public-domain notice checked on the exact source page. Attribution and source link retained: "+source,w.lang,w.year,source,"Public domain; exact page notice verified; author life+70 term expired in Poland"]);
+    [w.id,w.title,w.author,"Complete original-language text from Wikisource. Public-domain notice checked on the exact source page. Attribution and source link retained: "+source,w.category||"personal",w.lang,w.year,w.cover||null,source,"Public domain; exact page notice verified; author life+70 term expired in Poland"]);
    const client=await pool.connect();
    try{
     await client.query("BEGIN");
