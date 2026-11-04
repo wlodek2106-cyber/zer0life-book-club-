@@ -36,7 +36,8 @@ async function publishOriginalBook(){
 
 
 async function auditMissingPages(){const b=el("auditPagesBtn");if(b)b.disabled=true;const summary=el("missingPagesSummary"),list=el("missingPagesList");if(summary)summary.textContent="Checking every book record…";try{const r=await api("/api/admin/books-needing-pages");const rows=r.books||[];const byLang=rows.reduce((a,x)=>(a[x.language]=(a[x.language]||0)+1,a),{});if(summary)summary.textContent="Books without pages: "+rows.length+" · "+Object.entries(byLang).map(([k,v])=>k.toUpperCase()+": "+v).join(" · ");if(list)list.innerHTML=rows.map(x=>'<div style="border-bottom:1px solid #333;padding:8px 0"><b>'+safe(x.title)+'</b> · '+safe(x.author)+'<br>'+safe(x.language)+' · '+safe(x.category)+' · '+safe(x.rights_status)+' · '+(x.is_published?"published":"draft")+'<br>ID: '+safe(x.id)+' · Pages: '+x.page_count+' · Source: '+safe(x.source_url||x.content_url||"not set")+'</div>').join("")||"All catalog books have reader pages.";}catch(e){if(summary)summary.textContent="Audit failed: "+e.message;}finally{if(b)b.disabled=false;}}
-\nasync function load(){try{
+
+async function load(){try{
  const [s,b,q]=await Promise.all([api("/api/admin/stats"),api("/api/admin/books"),api("/api/admin/rights-review")]);
  el("stats").innerHTML=[["Users",s.users],["Active subscriptions",s.activeVip],["Published",s.publishedBooks],["Sales",s.salesStars+" ★"]].map(([k,v])=>'<div class="category"><span class="eyebrow">'+k+'</span><b>'+v+'</b></div>').join("");
  el("bookList").innerHTML=b.books.map(x=>'<div style="border-bottom:1px solid #333;padding:8px 0"><b>'+safe(x.title)+'</b> · '+safe(x.author)+'<br>'+safe(x.id)+' · '+safe(x.rights_status)+' · '+(x.is_published?"published":"draft")+'</div>').join("")||"No records yet.";
