@@ -356,56 +356,33 @@ function extractEpubText(buffer){
  return text;
 }
 async function importStandardEbooks(){
- // Curated business, psychology, finance and personal-growth classics.
- // Only authors whose Polish/EU life+70 term has expired are eligible here.
+ // Project Gutenberg explicitly restricts non-free for-profit use and redistribution.
+ // Therefore its full texts are NOT copied into this subscription library.
+ // Keep canonical links available for users to read at the source; only import
+ // texts from separately verified CC0/CC-BY/CC-BY-SA or licensed sources.
  const works=[
-  {id:"pg-1342",title:"Pride and Prejudice",author:"Jane Austen",death:1817,year:1813,category:"relationships"},
-  {id:"pg-84",title:"Frankenstein; or, The Modern Prometheus",author:"Mary Shelley",death:1851,year:1818,category:"psychology"},
-  {id:"pg-1661",title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",death:1930,year:1892,category:"personal"},
-  {id:"pg-6435",title:"The Principles of Scientific Management",author:"Frederick Winslow Taylor",death:1915,year:1911,category:"business"},
-  {id:"pg-8581",title:"The Art of Money Getting",author:"P. T. Barnum",death:1891,year:1880,category:"money"},
-  {id:"pg-59844",title:"The Science of Getting Rich",author:"Wallace D. Wattles",death:1911,year:1910,category:"money"},
-  {id:"pg-42055",title:"Your Mind and How to Use It",author:"William Walker Atkinson",death:1932,year:1911,category:"psychology"}
+  {id:"pg-1342",title:"Pride and Prejudice",author:"Jane Austen",category:"relationships"},
+  {id:"pg-84",title:"Frankenstein; or, The Modern Prometheus",author:"Mary Shelley",category:"psychology"},
+  {id:"pg-1661",title:"The Adventures of Sherlock Holmes",author:"Arthur Conan Doyle",category:"personal"},
+  {id:"pg-6435",title:"The Principles of Scientific Management",author:"Frederick Winslow Taylor",category:"business"},
+  {id:"pg-8581",title:"The Art of Money Getting",author:"P. T. Barnum",category:"money"},
+  {id:"pg-59844",title:"The Science of Getting Rich",author:"Wallace D. Wattles",category:"money"},
+  {id:"pg-42055",title:"Your Mind and How to Use It",author:"William Walker Atkinson",category:"psychology"}
  ];
  const result=[];
  for(const w of works){
+  const n=w.id.replace("pg-","");
+  const pageUrl="https://www.gutenberg.org/ebooks/"+n;
   try{
-   if(2026-w.death<71)throw new Error("Author term not expired in Poland");
-   const n=w.id.replace("pg-","");
-   const downloadUrl="https://www.gutenberg.org/cache/epub/"+n+"/"+w.id+".txt.utf8";
-   const pageUrl="https://www.gutenberg.org/ebooks/"+n;
-   const response=await fetch(downloadUrl,{headers:{"User-Agent":"Zer0LifeBookClub/1.0 (public-domain ebook ingestion)"}});
-   if(!response.ok)throw new Error("Project Gutenberg download HTTP "+response.status);
-   let body=(await response.text()).replace(/^\\uFEFF/,"").replace(/\\r/g,"").trim();
-   const start=body.search(/\\*\\*\\* START OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
-   if(start>=0){const nl=body.indexOf("\\n",start);if(nl>=0)body=body.slice(nl+1);}
-   const finish=body.search(/\\*\\*\\* END OF (THE|THIS) PROJECT GUTENBERG EBOOK/i);
-   if(finish>=0)body=body.slice(0,finish);
-   body=body.trim();
-   if(body.length<10000)throw new Error("Downloaded text is too short; refusing partial publication");
-   const chunks=[];let rest=body;
-   while(rest.length){let cut=Math.min(2800,rest.length);if(cut<rest.length){const p=rest.lastIndexOf(" ",cut);if(p>cut*.65)cut=p;}chunks.push(rest.slice(0,cut).trim());rest=rest.slice(cut).trim();}
-   if(chunks.length<5)throw new Error("Insufficient page count");
-   const license="Original author life+70 term expired in Poland; original-language text from Project Gutenberg. Source page and Project Gutenberg license/attribution retained for review.";
-   await pool.query(`INSERT INTO books(id,title,author,description,category,language,year,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
-    VALUES($1,$2,$3,$4,$5,'en',$6,0,FALSE,NULL,$7,'public_domain',FALSE,$8,$9,$8)
-    ON CONFLICT(id) DO UPDATE SET content_url=EXCLUDED.content_url,source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
-    WHERE books.rights_status IN ('pending','public_domain')`,
-    [w.id,w.title,w.author,"Complete English text. Original author life+70 term has expired in Poland. Project Gutenberg source and attribution: "+pageUrl,w.category,w.year,downloadUrl,pageUrl,license]);
-   const client=await pool.connect();
-   try{
-    await client.query("BEGIN");
-    const rights=await client.query("SELECT rights_status FROM books WHERE id=$1 FOR UPDATE",[w.id]);
-    if(!rights.rows[0]||rights.rows[0].rights_status!=="public_domain")throw new Error("Rights status is not approved");
-    await client.query("DELETE FROM book_pages WHERE book_id=$1",[w.id]);
-    for(let i=0;i<chunks.length;i++)await client.query("INSERT INTO book_pages(book_id,page_number,page_text) VALUES($1,$2,$3)",[w.id,i+1,chunks[i]]);
-    await client.query("UPDATE books SET is_published=TRUE,full_text_source_url=$2 WHERE id=$1",[w.id,downloadUrl]);
-    await client.query("COMMIT");
-   }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
-   result.push({id:w.id,title:w.title,category:w.category,status:"published",pages:chunks.length});
-  }catch(e){console.error("Curated English import skipped:",w.title,e.message);result.push({id:w.id,title:w.title,category:w.category,status:"skipped",reason:e.message});}
+   const r=await pool.query(`INSERT INTO books(id,title,author,description,category,language,price_stars,vip_only,cover_url,content_url,rights_status,is_published,source_url,source_license,rights_evidence_url)
+    VALUES($1,$2,$3,$4,$5,'en',0,FALSE,NULL,NULL,'pending',FALSE,$6,$7,$8)
+    ON CONFLICT(id) DO UPDATE SET source_url=EXCLUDED.source_url,source_license=EXCLUDED.source_license,rights_evidence_url=EXCLUDED.rights_evidence_url
+    WHERE books.rights_status='pending' RETURNING id`,
+    [w.id,w.title,w.author,"External reading link only. Project Gutenberg terms do not permit non-free for-profit redistribution; no full text is copied or sold through Zer0Life Book Club.",w.category,pageUrl,"External source only; not licensed for this paid redistribution workflow","https://www.gutenberg.org/policy/terms_of_use.html"]);
+   result.push({id:w.id,title:w.title,status:"external_link_only",source:pageUrl});
+  }catch(e){console.error("Gutenberg link metadata skipped:",w.title,e.message);result.push({id:w.id,status:"skipped",reason:e.message});}
  }
- console.log("Curated English full-text import:",JSON.stringify(result));return result;
+ console.log("Project Gutenberg kept as external links only:",JSON.stringify(result));return result;
 }
 async function importCuratedWikisourceBooks(){
  const works=[
