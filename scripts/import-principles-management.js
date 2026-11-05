@@ -67,34 +67,12 @@ module.exports = async function importPrinciplesManagement(pool) {
     throw new Error("Book index did not expose the expected CC BY 4.0 notice");
   }
   const basePath = new URL(indexUrl).pathname.replace(/\/$/, "") + "/";
-  // Discover the live chapter links from the book TOC instead of hard-coding
-  // MindTouch slugs; the platform's encoded names can change between editions.
+  // Discover chapter and section URLs from the live LibreTexts table of contents.
   const chapterRoots = extractLinks(indexHtml, indexUrl, basePath).filter(u => {
     const path = decodeURIComponent(new URL(u).pathname);
-    return new RegExp("^" + basePath.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\  const moduleSlugs = [
-    "01:_Introduction_to_Management","02:_History_of_Management","03:_Planning_and_Mission",
-    "04:_Environments_and_Strategic_Management","05:_Decision_Making","06:_Organizational_Structures",
-    "07:_Human_Resource_Management","08:_Groups,_Teams,_and_Teamwork","09:_Culture_and_Diversity",
-    "10:_Leadership","11:_Motivation","12:_The_Individual_and_the_Organization",
-    "13:_Ethics_in_Business","14:_Communication","15:_Control","16:_Globalization_and_Business"
-  ];
-  const chapterRoots = moduleSlugs.map(slug =>
-    new URL(encodeURIComponent(slug), indexUrl.replace(/\/$/, "") + "/").toString()
-  );
-  const allPages = new Set();
-  for (const chapterUrl of chapterRoots) {
-    const chapterHtml = await get(chapterUrl);
-    const subpages = extractLinks(chapterHtml, chapterUrl, basePath);
-    for (const u of subpages) {
-      const path = decodeURIComponent(new URL(u).pathname);
-      if (/\/\d{1,2}\.\d{1,2}:/.test(path)) allPages.add(u);
-    }
-  }
-") + "\\d{2}:_").test(path);
+    return path.startsWith(basePath) && /\\/\\d{2}:_/.test(path);
   });
-  if (chapterRoots.length < 12) {
-    throw new Error("Expected at least 12 chapter links in the live table of contents; found " + chapterRoots.length);
-  }
+  if (chapterRoots.length < 12) throw new Error('Expected at least 12 chapter links; found ' + chapterRoots.length);
   const allPages = new Set();
   const visited = new Set(chapterRoots);
   const queue = [...chapterRoots];
@@ -105,13 +83,8 @@ module.exports = async function importPrinciplesManagement(pool) {
       if (visited.has(u)) continue;
       visited.add(u);
       const path = decodeURIComponent(new URL(u).pathname);
-      // Section pages are numbered below a chapter (e.g. 1.1, 1.2, 2.1).
       if (/\\/\\d{1,2}\\.\\d{1,2}(?:\\.|:|$)/.test(path)) allPages.add(u);
-      // Follow same-book links so nested chapter TOCs are also discovered.
-      if (path.startsWith(basePath) && path !== new URL(indexUrl).pathname &&
-          path.split("/").length <= new URL(indexUrl).pathname.split("/").length + 3) {
-        queue.push(u);
-      }
+      if (path.startsWith(basePath) && path.split('/').length <= new URL(indexUrl).pathname.split('/').length + 3) queue.push(u);
     }
   }
   const ordered = [...allPages].sort((a,b) => a.localeCompare(b));
