@@ -1352,6 +1352,14 @@ async function start() {
      await importCuratedWikisourceBooks();
      try { const result = await require('./scripts/import-entrepreneurship')(pool); console.log('Entrepreneurship full-text import result:', JSON.stringify(result)); } catch (error) { console.error('Entrepreneurship full-text import failed:', error.stack || error.message); }
      try { const result = await require('./scripts/import-principles-management')(pool); console.log('Principles of Management full-text import result:', JSON.stringify(result)); } catch (error) { console.error('Principles of Management full-text import failed:', error.stack || error.message); }
+     // Keep metadata-only titles out of the reader catalog until they have real pages.
+     const hiddenEmpty = await pool.query(`
+      UPDATE books b SET is_published=FALSE
+      WHERE b.is_published=TRUE
+        AND NOT EXISTS (SELECT 1 FROM book_pages bp WHERE bp.book_id=b.id)
+      RETURNING b.id
+     `);
+     console.log('Hidden published books with no reader pages:', hiddenEmpty.rowCount);
      scheduleCatalogSync();
      console.log("Background catalogue import finished.");
     } catch (error) {
